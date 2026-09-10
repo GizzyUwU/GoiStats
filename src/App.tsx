@@ -456,6 +456,24 @@ const App = (): JSX.Element => {
               <span class="stat-value">{formatHumanDate(resp().data.oldestInQueue)}</span>
               <span class="stat-subtext">{daysSince(resp().data.oldestInQueue)} days old</span>
             </div>
+            <div class="stat-card">
+              <span class="stat-label">Reviews Today</span>
+              <span class="stat-value">{resp().data.reviewerLb.reduce((sum, r) => sum + r.projectsReviewedToday, 0)}</span>
+              <span class="stat-subtext">projects reviewed today</span>
+            </div>
+            <div class="stat-card">
+              <span class="stat-label">Locked In</span>
+              <span class="stat-value" style={{ color: resp().data.reviewerLb.some((r) => r.lockedInStatus) ? "var(--yellow)" : undefined }}>
+                {resp().data.reviewerLb.filter((r) => r.lockedInStatus).length}
+              </span>
+              <span class="stat-subtext">
+                {(() => {
+                  const locked = resp().data.reviewerLb.filter((r) => r.lockedInStatus).length;
+                  const total = resp().data.reviewerLb.length;
+                  return `${locked} of ${total} reviewers`;
+                })()}
+              </span>
+            </div>
           </div>
           <div class="tier-card">
             <div class="tier-card-head">
