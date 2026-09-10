@@ -1,0 +1,29 @@
+{
+  "name": "goistats",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently \"vite\" \"bun run server\"",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "server": "bun run server.ts",
+    "start": "bun run build && bun run server.ts"
+  },
+  "dependencies": {
+    "@dschz/solid-lightweight-charts": "^0.4.0",
+    "@elysiajs/html": "^1.2.0",
+    "@tanstack/solid-query": "^5.102.8",
+    "elysia": "^1.2.25",
+    "lightweight-charts": "^5.2.1",
+    "solid-js": "^1.9.15",
+    "zod": "^4.6.1"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.2.16",
+    "concurrently": "^9.1.2",
+    "typescript": "~6.0.2",
+    "vite": "^8.2.2",
+    "vite-plugin-solid": "^2.11.14"
+  }
+}

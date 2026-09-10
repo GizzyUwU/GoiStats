@@ -1,0 +1,42 @@
+services:
+  goistats:
+    build:
+      context: .
+    env_file: .env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: always
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "curl -fsS http://localhost:3001/health | jq -e '.ok == true' >/dev/null",
+        ]
+      interval: 10s
+      timeout: 2s
+      retries: 5
+      start_period: 10s
+
+  goistats_frontend:
+    build:
+      context: .
+      dockerfile: Frontend.Dockerfile
+    env_file: .env
+    environment:
+      - BACKEND_URL=http://goistats:3001
+    depends_on:
+      goistats:
+        condition: service_healthy
+    restart: always
+    ports:
+      - "27183:3000"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "curl -fsS http://localhost:3000/health | jq -e '.ok == true' >/dev/null",
+        ]
+      interval: 10s
+      timeout: 2s
+      retries: 5
+      start_period: 4s
