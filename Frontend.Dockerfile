@@ -1,8 +1,7 @@
 FROM oven/bun:debian AS builder
 WORKDIR /usr/src/app
 COPY . .
-RUN bun install --lockfile-only
-RUN bun install --production
+RUN bun install
 RUN bun run build:frontend
 
 FROM nginx:mainline-alpine AS runner
