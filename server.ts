@@ -20,7 +20,7 @@ let cache: CacheEntry | null = null;
 let inflight: Promise<CacheEntry> | null = null;
 
 const fetchGoiStats = async (): Promise<GoiStats> => {
-  const res = await fetch("http://127.0.0.1:3000/api/v1/stardance/goiStats", {
+  const res = await fetch("https://hces.gizzy.gay/api/v1/stardance/goiStats", {
     headers: {
       Authorization: `Bearer ${HCES_BEARER_TOKEN}`,
       "X-Stardance-Cookie": STARDANCE_COOKIE,
