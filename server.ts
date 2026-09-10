@@ -5,6 +5,7 @@ import { goiStatsSchema } from "./src/schema.js";
 
 const STARDANCE_COOKIE = process.env.STARDANCE_COOKIE;
 const HCES_BEARER_TOKEN = process.env.HCES_BEARER_TOKEN;
+const HCES_URL = process.env.HCES_URL ?? "https://hces.gizzy.gay";
 
 if (!STARDANCE_COOKIE || !HCES_BEARER_TOKEN) {
   throw new Error("STARDANCE_COOKIE and HCES_BEARER_TOKEN environment variables are required");
@@ -20,7 +21,7 @@ let cache: CacheEntry | null = null;
 let inflight: Promise<CacheEntry> | null = null;
 
 const fetchGoiStats = async (): Promise<GoiStats> => {
-  const res = await fetch("https://hces.gizzy.gay/api/v1/stardance/goiStats", {
+  const res = await fetch(`${HCES_URL}/api/v1/stardance/goiStats`, {
     headers: {
       Authorization: `Bearer ${HCES_BEARER_TOKEN}`,
       "X-Stardance-Cookie": STARDANCE_COOKIE,
@@ -60,18 +61,25 @@ const DIST = join(import.meta.dir, "dist");
 
 const app = new Elysia()
   .get("/health", () => ({ ok: true }))
-  .get("/api/goistats", async () => {
+  .get("/api/goistats", async ({ set }) => {
     const now = Date.now();
 
     if (!cache || cache.expiresAt <= now) {
       try {
         await refreshCache();
-      } catch {
-        if (!cache) throw new Error("No cached stats available");
+      } catch (err) {
+        console.error("Failed to refresh goiStats:", err);
+        if (!cache) {
+          set.status = 500;
+          return { error: "Failed to fetch stats from upstream", details: err instanceof Error ? err.message : String(err) };
+        }
       }
     }
 
-    if (!cache) throw new Error("No cached stats available");
+    if (!cache) {
+      set.status = 500;
+      return { error: "No cached stats available" };
+    }
 
     return {
       data: cache.data,
@@ -79,11 +87,10 @@ const app = new Elysia()
       nextRefresh: new Date(cache.expiresAt).toISOString(),
     };
   })
-  .onError(({ code, error }) => {
-    if (code === "INTERNAL_SERVER_ERROR") {
-      console.error("Failed to fetch goiStats:", error);
-      return { error: "Failed to fetch stats from upstream" };
-    }
+  .onError(({ code, error, set }) => {
+    console.error(`[goistats] ${code}:`, error);
+    set.status = 500;
+    return { error: "Internal server error", details: error instanceof Error ? error.message : String(error) };
   })
   .get("*", async ({ path }) => {
     const filePath = join(DIST, path === "/" ? "index.html" : path);

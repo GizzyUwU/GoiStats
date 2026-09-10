@@ -39,12 +39,18 @@ export const personalStatsSchema = z.object({
   diffPplProjectsReviewed: z.number(),
 });
 
+export const categoryEntrySchema = z.object({
+  type: z.string(),
+  count: z.number().min(0),
+});
+
 export const goiStatsSchema = z.object({
   myUsername: z.string(),
   queueCount: z.number().min(0),
   pendingHours: z.number().min(0),
   pendingDevlogs: z.number().min(0),
   oldestInQueue: z.iso.date(),
+  categories: z.array(categoryEntrySchema).optional().default([]),
   reviewerLb: z.array(reviewerEntrySchema),
   graph: graphSchema,
   personalStats: personalStatsSchema,
@@ -56,3 +62,4 @@ export type GraphDateEntry = z.infer<typeof graphDateEntrySchema>;
 export type Graph = z.infer<typeof graphSchema>;
 export type PersonalStats = z.infer<typeof personalStatsSchema>;
 export type GoiStats = z.infer<typeof goiStatsSchema>;
+export type CategoryEntry = z.infer<typeof categoryEntrySchema>;

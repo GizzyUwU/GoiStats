@@ -1,1 +1,1 @@
-export type { ReviewerEntry, GraphReviewer, GraphDateEntry, Graph, PersonalStats, GoiStats } from "./schema.js";
+export type { ReviewerEntry, GraphReviewer, GraphDateEntry, Graph, PersonalStats, GoiStats, CategoryEntry } from "./schema.js";
