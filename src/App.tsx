@@ -856,25 +856,34 @@ const App = (): JSX.Element => {
 
   return (
     <div class="app">
-    <Show
-      when={isGotg()}
-    >
-      <>
-        <Title>Guardians Of The Galaxy</Title>
-        <Meta property="og:title" content="GOIStats" />
-        <Meta property="og:description" content="Oooo! Finally stats on the Guardians of Integrity team!" />
-        <Meta property="og:url" content="https://gotg.gizzy.gay" />
-        <Meta property="og:image" content="https://gotg.gizzy.gay/oooo.jpg" />
-        <Meta property="og:type" content="website" />
-        <Meta property="og:site_name" content="GOIStats" />
-        <Meta name="twitter:card" content="summary_large_image" />
-        <Meta name="twitter:title" content="GOIStats" />
-        <Meta name="twitter:description" content="Oooo! Finally stats on the Guardians of Integrity team!" />
-        <Meta name="twitter:image" content="https://gotg.gizzy.gay/oooo.jpg" />
-      </>
-    </Show>
+      <Show when={isGotg()}>
+        <>
+          <Title>Guardians Of The Galaxy</Title>
+          <Meta property="og:title" content="GOIStats" />
+          <Meta
+            property="og:description"
+            content="Oooo! Finally stats on the Guardians of Integrity team!"
+          />
+          <Meta property="og:url" content="https://gotg.gizzy.gay" />
+          <Meta property="og:image" content="https://gotg.gizzy.gay/oooo.jpg" />
+          <Meta property="og:type" content="website" />
+          <Meta property="og:site_name" content="GOIStats" />
+          <Meta name="twitter:card" content="summary_large_image" />
+          <Meta name="twitter:title" content="GOIStats" />
+          <Meta
+            name="twitter:description"
+            content="Oooo! Finally stats on the Guardians of Integrity team!"
+          />
+          <Meta
+            name="twitter:image"
+            content="https://gotg.gizzy.gay/oooo.jpg"
+          />
+        </>
+      </Show>
       <header>
-        <h1>{isGotg() ? "Guardians Of The Galaxy" : "Guardians of Integrity"}</h1>
+        <h1>
+          {isGotg() ? "Guardians Of The Galaxy" : "Guardians of Integrity"}
+        </h1>
         <Show when={statsQuery.data}>
           {(resp) => (
             <div class="header-meta">
