@@ -1,4 +1,15 @@
-import { createEffect, createMemo, createSignal, onCleanup, onMount, type Component, type JSX, For, Show } from "solid-js";
+import {
+  createEffect,
+  createMemo,
+  createSignal,
+  onCleanup,
+  onMount,
+  type Component,
+  type JSX,
+  For,
+  Show,
+} from "solid-js";
+import { Meta, Title } from "@solidjs/meta";
 import { createQuery } from "@tanstack/solid-query";
 import * as d3 from "d3";
 import type { CategoryEntry, GoiStats, Graph, ReviewerEntry } from "./types";
@@ -38,10 +49,10 @@ const parseGraphDate = (str: string): Date | null => {
   return null;
 };
 
-const formatDayMonth = (d: Date): string => `${d.getDate()}/${d.getMonth() + 1}`;
+const formatDayMonth = (d: Date): string =>
+  `${d.getDate()}/${d.getMonth() + 1}`;
 const ReviewChart: Component<{ graph: Graph }> = (props) => {
   const [hovered, setHovered] = createSignal<number | null>(null);
-
   const totals = (): { reviewer: string; reviews: number }[] => {
     const map = new Map<string, number>();
     for (const day of props.graph.dates) {
@@ -49,16 +60,21 @@ const ReviewChart: Component<{ graph: Graph }> = (props) => {
         map.set(entry.reviewer, (map.get(entry.reviewer) ?? 0) + entry.reviews);
       }
     }
-    return [...map.entries()].map(([reviewer, reviews]) => ({ reviewer, reviews })).sort((a, b) => b.reviews - a.reviews);
+    return [...map.entries()]
+      .map(([reviewer, reviews]) => ({ reviewer, reviews }))
+      .sort((a, b) => b.reviews - a.reviews);
   };
 
-  const maxReviews = (): number => Math.max(1, ...totals().map((r) => r.reviews));
+  const maxReviews = (): number =>
+    Math.max(1, ...totals().map((r) => r.reviews));
 
   const dateRange = (): string => {
     if (props.graph.dates.length === 0) return "";
     const tryFormat = (s: string) => {
       const d = parseGraphDate(s);
-      return d ? d.toLocaleDateString(undefined, { month: "short", day: "numeric" }) : s;
+      return d
+        ? d.toLocaleDateString(undefined, { month: "short", day: "numeric" })
+        : s;
     };
     const f = tryFormat(props.graph.dates[0].date);
     const l = tryFormat(props.graph.dates[props.graph.dates.length - 1].date);
@@ -75,7 +91,12 @@ const ReviewChart: Component<{ graph: Graph }> = (props) => {
             onMouseEnter={() => setHovered(i())}
             onMouseLeave={() => setHovered(null)}
           >
-            <a href={"https://stardance.hackclub.com/@" + entry.reviewer} class="review-name">{entry.reviewer}</a>
+            <a
+              href={"https://stardance.hackclub.com/@" + entry.reviewer}
+              class="review-name"
+            >
+              {entry.reviewer}
+            </a>
             <div class="review-bar-track">
               <div
                 class="review-bar"
@@ -103,24 +124,41 @@ const ReviewChart: Component<{ graph: Graph }> = (props) => {
   );
 };
 
-const CategoriesPieChart: Component<{ categories: CategoryEntry[] }> = (props) => {
+const CategoriesPieChart: Component<{ categories: CategoryEntry[] }> = (
+  props,
+) => {
   let containerRef!: HTMLDivElement;
   let svgRef!: SVGSVGElement;
-  const [hovered, setHovered] = createSignal<{ type: string; count: number; percent: number; x: number; y: number } | null>(null);
+  const [hovered, setHovered] = createSignal<{
+    type: string;
+    count: number;
+    percent: number;
+    x: number;
+    y: number;
+  } | null>(null);
   const [hidden, setHidden] = createSignal<Set<string>>(new Set());
 
   const filtered = createMemo(() => {
-    const cats = props.categories.filter((c) => c.type.toLowerCase() !== "all types");
+    const cats = props.categories.filter(
+      (c) => c.type.toLowerCase() !== "all types",
+    );
     const list = cats.length > 0 ? cats : props.categories;
     return [...list].sort((a, b) => b.count - a.count);
   });
 
-  const visibleData = createMemo(() => filtered().filter((c) => !hidden().has(c.type)));
-  const total = createMemo(() => visibleData().reduce((s, c) => s + c.count, 0));
+  const visibleData = createMemo(() =>
+    filtered().filter((c) => !hidden().has(c.type)),
+  );
+  const total = createMemo(() =>
+    visibleData().reduce((s, c) => s + c.count, 0),
+  );
 
   const colorScale = createMemo(() => {
     const cats = filtered();
-    return d3.scaleOrdinal<string, string>().domain(cats.map((c) => c.type)).range(PALETTE as unknown as string[]);
+    return d3
+      .scaleOrdinal<string, string>()
+      .domain(cats.map((c) => c.type))
+      .range(PALETTE as unknown as string[]);
   });
 
   const toggle = (type: string) => {
@@ -141,44 +179,87 @@ const CategoriesPieChart: Component<{ categories: CategoryEntry[] }> = (props) =
     const radius = Math.min(width, height) * 0.38;
     const svg = d3.select(svgRef);
     svg.selectAll("*").remove();
-    svg.attr("viewBox", `0 0 ${width} ${height}`).attr("width", width).attr("height", height);
+    svg
+      .attr("viewBox", `0 0 ${width} ${height}`)
+      .attr("width", width)
+      .attr("height", height);
 
     if (data.length === 0) {
-      svg.append("text").attr("x", width / 2).attr("y", height / 2).attr("text-anchor", "middle").attr("fill", "#a6adc8").attr("font-size", "0.85rem").text("No category data");
+      svg
+        .append("text")
+        .attr("x", width / 2)
+        .attr("y", height / 2)
+        .attr("text-anchor", "middle")
+        .attr("fill", "#a6adc8")
+        .attr("font-size", "0.85rem")
+        .text("No category data");
       return;
     }
 
-    const g = svg.append("g").attr("transform", `translate(${width / 2},${height / 2})`);
+    const g = svg
+      .append("g")
+      .attr("transform", `translate(${width / 2},${height / 2})`);
 
-    const pie = d3.pie<CategoryEntry>().value((d) => d.count).sort(null).padAngle(0.02);
-    const arc = d3.arc<d3.PieArcDatum<CategoryEntry>>().innerRadius(0).outerRadius(radius);
-    const arcHover = d3.arc<d3.PieArcDatum<CategoryEntry>>().innerRadius(0).outerRadius(radius + 8);
-    const labelArc = d3.arc<d3.PieArcDatum<CategoryEntry>>().innerRadius(radius * 0.62).outerRadius(radius * 0.62);
+    const pie = d3
+      .pie<CategoryEntry>()
+      .value((d) => d.count)
+      .sort(null)
+      .padAngle(0.02);
+    const arc = d3
+      .arc<d3.PieArcDatum<CategoryEntry>>()
+      .innerRadius(0)
+      .outerRadius(radius);
+    const arcHover = d3
+      .arc<d3.PieArcDatum<CategoryEntry>>()
+      .innerRadius(0)
+      .outerRadius(radius + 8);
+    const labelArc = d3
+      .arc<d3.PieArcDatum<CategoryEntry>>()
+      .innerRadius(radius * 0.62)
+      .outerRadius(radius * 0.62);
 
-    g.selectAll("path").data(pie(data)).enter().append("path")
+    g.selectAll("path")
+      .data(pie(data))
+      .enter()
+      .append("path")
       .attr("d", arc as any)
       .attr("fill", (d) => colorScale()(d.data.type))
       .attr("stroke", "#1e1e2e")
       .attr("stroke-width", 2)
       .style("cursor", "pointer")
       .style("transition", "opacity 0.15s, transform 0.15s")
-      .on("mouseenter", function(event, d) {
+      .on("mouseenter", function (event, d) {
         d3.select(this).attr("d", arcHover as any);
         const percent = total() ? (d.data.count / total()) * 100 : 0;
         const [mx, my] = d3.pointer(event, containerRef);
-        setHovered({ type: d.data.type, count: d.data.count, percent, x: mx, y: my });
+        setHovered({
+          type: d.data.type,
+          count: d.data.count,
+          percent,
+          x: mx,
+          y: my,
+        });
       })
-      .on("mousemove", function(event, d) {
+      .on("mousemove", function (event, d) {
         const percent = total() ? (d.data.count / total()) * 100 : 0;
         const [mx, my] = d3.pointer(event, containerRef);
-        setHovered({ type: d.data.type, count: d.data.count, percent, x: mx, y: my });
+        setHovered({
+          type: d.data.type,
+          count: d.data.count,
+          percent,
+          x: mx,
+          y: my,
+        });
       })
-      .on("mouseleave", function() {
+      .on("mouseleave", function () {
         d3.select(this).attr("d", arc as any);
         setHovered(null);
       });
 
-    g.selectAll("text.slice-label").data(pie(data)).enter().append("text")
+    g.selectAll("text.slice-label")
+      .data(pie(data))
+      .enter()
+      .append("text")
       .attr("class", "slice-label")
       .attr("transform", (d) => `translate(${labelArc.centroid(d as any)})`)
       .attr("text-anchor", "middle")
@@ -200,14 +281,20 @@ const CategoriesPieChart: Component<{ categories: CategoryEntry[] }> = (props) =
   });
 
   createEffect(() => {
-
-    filtered(); hidden(); total(); colorScale();
+    filtered();
+    hidden();
+    total();
+    colorScale();
     draw();
   });
 
   return (
     <div class="categories-pie-wrap">
-      <div class="pie-chart-container" ref={containerRef} style={{ position: "relative" }}>
+      <div
+        class="pie-chart-container"
+        ref={containerRef}
+        style={{ position: "relative" }}
+      >
         <svg ref={svgRef!} class="pie-svg" />
         <Show when={hovered()}>
           {(h) => (
@@ -219,8 +306,14 @@ const CategoriesPieChart: Component<{ categories: CategoryEntry[] }> = (props) =
               }}
             >
               <div class="pie-tooltip-title">{h().type}</div>
-              <div class="pie-tooltip-row"><span>Count</span><strong>{h().count}</strong></div>
-              <div class="pie-tooltip-row"><span>Share</span><strong>{h().percent.toFixed(1)}%</strong></div>
+              <div class="pie-tooltip-row">
+                <span>Count</span>
+                <strong>{h().count}</strong>
+              </div>
+              <div class="pie-tooltip-row">
+                <span>Share</span>
+                <strong>{h().percent.toFixed(1)}%</strong>
+              </div>
             </div>
           )}
         </Show>
@@ -230,17 +323,39 @@ const CategoriesPieChart: Component<{ categories: CategoryEntry[] }> = (props) =
           {(cat) => {
             const isHidden = () => hidden().has(cat.type);
             return (
-              <button class="pie-legend-item" classList={{ "pie-legend-hidden": isHidden() }} onClick={() => toggle(cat.type)} type="button">
-                <span class="dc-swatch" style={{ background: colorScale()(cat.type) }} />
+              <button
+                class="pie-legend-item"
+                classList={{ "pie-legend-hidden": isHidden() }}
+                onClick={() => toggle(cat.type)}
+                type="button"
+              >
+                <span
+                  class="dc-swatch"
+                  style={{ background: colorScale()(cat.type) }}
+                />
                 <span class="pie-legend-label">{cat.type}</span>
                 <span class="pie-legend-count">{cat.count}</span>
-                <span class="pie-legend-pct">{total() ? ((cat.count / (props.categories.filter(c=>c.type.toLowerCase()!=="all types").reduce((s,c)=>s+c.count,0) || 1))*100).toFixed(1) : "0"}%</span>
+                <span class="pie-legend-pct">
+                  {total()
+                    ? (
+                        (cat.count /
+                          (props.categories
+                            .filter((c) => c.type.toLowerCase() !== "all types")
+                            .reduce((s, c) => s + c.count, 0) || 1)) *
+                        100
+                      ).toFixed(1)
+                    : "0"}
+                  %
+                </span>
               </button>
             );
           }}
         </For>
       </div>
-      <div class="pie-total">Total: {filtered().reduce((s,c)=>s+c.count,0)} projects (excl. "All types")</div>
+      <div class="pie-total">
+        Total: {filtered().reduce((s, c) => s + c.count, 0)} projects (excl.
+        "All types")
+      </div>
     </div>
   );
 };
@@ -249,16 +364,26 @@ const ReviewsByDateChart: Component<{ graph: Graph }> = (props) => {
   let containerRef!: HTMLDivElement;
   let svgRef!: SVGSVGElement;
   const [hidden, setHidden] = createSignal<Set<string>>(new Set());
-  const [tooltip, setTooltip] = createSignal<{ x:number; y:number; date: Date; values: { reviewer:string; value:number; color:string }[] } | null>(null);
+  const [tooltip, setTooltip] = createSignal<{
+    x: number;
+    y: number;
+    date: Date;
+    values: { reviewer: string; value: number; color: string }[];
+  } | null>(null);
 
   const reviewerOrder = createMemo((): string[] => {
     const totals = new Map<string, number>();
     for (const day of props.graph.dates) {
       for (const entry of day.reviewers) {
-        totals.set(entry.reviewer, (totals.get(entry.reviewer) ?? 0) + entry.reviews);
+        totals.set(
+          entry.reviewer,
+          (totals.get(entry.reviewer) ?? 0) + entry.reviews,
+        );
       }
     }
-    return [...totals.entries()].sort((a, b) => b[1] - a[1]).map(([name]) => name);
+    return [...totals.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .map(([name]) => name);
   });
 
   const colorFor = (reviewer: string): string => {
@@ -270,7 +395,10 @@ const ReviewsByDateChart: Component<{ graph: Graph }> = (props) => {
     const totals = new Map<string, number>();
     for (const day of props.graph.dates) {
       for (const entry of day.reviewers) {
-        totals.set(entry.reviewer, (totals.get(entry.reviewer) ?? 0) + entry.reviews);
+        totals.set(
+          entry.reviewer,
+          (totals.get(entry.reviewer) ?? 0) + entry.reviews,
+        );
       }
     }
     return totals;
@@ -289,18 +417,22 @@ const ReviewsByDateChart: Component<{ graph: Graph }> = (props) => {
       map.set(key, entry);
     }
 
-    const entries = [...map.values()].sort((a,b)=>a.date.getTime()-b.date.getTime());
-    if (entries.length===0) return [];
-    const start = new Date(entries[0].date); start.setHours(0,0,0,0);
-    const end = new Date(entries[entries.length-1].date); end.setHours(0,0,0,0);
+    const entries = [...map.values()].sort(
+      (a, b) => a.date.getTime() - b.date.getTime(),
+    );
+    if (entries.length === 0) return [];
+    const start = new Date(entries[0].date);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(entries[entries.length - 1].date);
+    end.setHours(0, 0, 0, 0);
     const all: { date: Date; map: Map<string, number> }[] = [];
     const cursor = new Date(start);
-    const lookup = new Map(entries.map(e=>[e.date.getTime(), e.map]));
+    const lookup = new Map(entries.map((e) => [e.date.getTime(), e.map]));
     while (cursor <= end) {
-      const key = new Date(cursor).setHours(0,0,0,0);
+      const key = new Date(cursor).setHours(0, 0, 0, 0);
       const m = lookup.get(key) ?? new Map<string, number>();
       all.push({ date: new Date(cursor), map: m });
-      cursor.setDate(cursor.getDate()+1);
+      cursor.setDate(cursor.getDate() + 1);
     }
     return all;
   });
@@ -325,26 +457,47 @@ const ReviewsByDateChart: Component<{ graph: Graph }> = (props) => {
 
     const svg = d3.select(svgRef);
     svg.selectAll("*").remove();
-    svg.attr("viewBox", `0 0 ${width} ${height}`).attr("width", width).attr("height", height);
+    svg
+      .attr("viewBox", `0 0 ${width} ${height}`)
+      .attr("width", width)
+      .attr("height", height);
 
     if (data.length === 0) {
-      svg.append("text").attr("x", width/2).attr("y", height/2).attr("text-anchor","middle").attr("fill","#a6adc8").attr("font-size","0.85rem").text("No activity data yet");
+      svg
+        .append("text")
+        .attr("x", width / 2)
+        .attr("y", height / 2)
+        .attr("text-anchor", "middle")
+        .attr("fill", "#a6adc8")
+        .attr("font-size", "0.85rem")
+        .text("No activity data yet");
       return;
     }
 
-    const g = svg.append("g").attr("transform", `translate(${margin.left},${margin.top})`);
+    const g = svg
+      .append("g")
+      .attr("transform", `translate(${margin.left},${margin.top})`);
 
-    const x = d3.scaleTime().domain(d3.extent(data, d=>d.date) as [Date, Date]).range([0, innerW]);
+    const x = d3
+      .scaleTime()
+      .domain(d3.extent(data, (d) => d.date) as [Date, Date])
+      .range([0, innerW]);
 
-    const maxY = d3.max(data, d => {
-      let m = 0;
-      for (const [rev, val] of d.map) if (!hidden().has(rev)) m = Math.max(m, val);
-      return m;
-    }) ?? 0;
+    const maxY =
+      d3.max(data, (d) => {
+        let m = 0;
+        for (const [rev, val] of d.map)
+          if (!hidden().has(rev)) m = Math.max(m, val);
+        return m;
+      }) ?? 0;
 
     const yDomainMax = Math.max(1, maxY);
 
-    const y = d3.scaleLinear().domain([0, yDomainMax * 1.1]).nice().range([innerH, 0]);
+    const y = d3
+      .scaleLinear()
+      .domain([0, yDomainMax * 1.1])
+      .nice()
+      .range([innerH, 0]);
 
     const tickValues: Date[] = [];
     {
@@ -359,101 +512,199 @@ const ReviewsByDateChart: Component<{ graph: Graph }> = (props) => {
     }
 
     const yTicks = y.ticks(5);
-    g.append("g").selectAll("line.grid").data(yTicks).enter().append("line")
-      .attr("x1",0).attr("x2",innerW).attr("y1", d=>y(d)).attr("y2", d=>y(d))
-      .attr("stroke","rgba(88,91,112,0.18)").attr("stroke-dasharray","2,2");
+    g.append("g")
+      .selectAll("line.grid")
+      .data(yTicks)
+      .enter()
+      .append("line")
+      .attr("x1", 0)
+      .attr("x2", innerW)
+      .attr("y1", (d) => y(d))
+      .attr("y2", (d) => y(d))
+      .attr("stroke", "rgba(88,91,112,0.18)")
+      .attr("stroke-dasharray", "2,2");
 
-    g.append("g").selectAll("line.xgrid").data(tickValues).enter().append("line")
-      .attr("x1", d=>x(d)).attr("x2", d=>x(d)).attr("y1",0).attr("y2",innerH)
-      .attr("stroke","rgba(88,91,112,0.12)").attr("stroke-dasharray","2,2");
+    g.append("g")
+      .selectAll("line.xgrid")
+      .data(tickValues)
+      .enter()
+      .append("line")
+      .attr("x1", (d) => x(d))
+      .attr("x2", (d) => x(d))
+      .attr("y1", 0)
+      .attr("y2", innerH)
+      .attr("stroke", "rgba(88,91,112,0.12)")
+      .attr("stroke-dasharray", "2,2");
 
-    const xAxis = d3.axisBottom<Date>(x).tickValues(tickValues).tickFormat((d)=>formatDayMonth(d as Date)).tickSizeOuter(0);
+    const xAxis = d3
+      .axisBottom<Date>(x)
+      .tickValues(tickValues)
+      .tickFormat((d) => formatDayMonth(d as Date))
+      .tickSizeOuter(0);
     const yAxis = d3.axisLeft(y).ticks(5).tickSizeOuter(0);
 
-    g.append("g").attr("transform",`translate(0,${innerH})`).call(xAxis)
-      .call(g=>g.select(".domain").attr("stroke","rgba(88,91,112,0.5)"))
-      .call(g=>g.selectAll(".tick line").attr("stroke","rgba(88,91,112,0.5)"))
-      .call(g=>g.selectAll(".tick text").attr("fill","#7f849c").attr("font-size","0.68rem"));
+    g.append("g")
+      .attr("transform", `translate(0,${innerH})`)
+      .call(xAxis)
+      .call((g) => g.select(".domain").attr("stroke", "rgba(88,91,112,0.5)"))
+      .call((g) =>
+        g.selectAll(".tick line").attr("stroke", "rgba(88,91,112,0.5)"),
+      )
+      .call((g) =>
+        g
+          .selectAll(".tick text")
+          .attr("fill", "#7f849c")
+          .attr("font-size", "0.68rem"),
+      );
 
-    g.append("g").call(yAxis)
-      .call(g=>g.select(".domain").attr("stroke","rgba(88,91,112,0.5)"))
-      .call(g=>g.selectAll(".tick line").attr("stroke","rgba(88,91,112,0.5)"))
-      .call(g=>g.selectAll(".tick text").attr("fill","#7f849c").attr("font-size","0.68rem"));
+    g.append("g")
+      .call(yAxis)
+      .call((g) => g.select(".domain").attr("stroke", "rgba(88,91,112,0.5)"))
+      .call((g) =>
+        g.selectAll(".tick line").attr("stroke", "rgba(88,91,112,0.5)"),
+      )
+      .call((g) =>
+        g
+          .selectAll(".tick text")
+          .attr("fill", "#7f849c")
+          .attr("font-size", "0.68rem"),
+      );
 
-    const lineGen = d3.line<{date:Date; value:number}>().x(d=>x(d.date)).y(d=>y(d.value)).curve(d3.curveMonotoneX);
+    const lineGen = d3
+      .line<{ date: Date; value: number }>()
+      .x((d) => x(d.date))
+      .y((d) => y(d.value))
+      .curve(d3.curveMonotoneX);
 
     for (const reviewer of reviewerOrder()) {
       if (hidden().has(reviewer)) continue;
-      const series = data.map(d=>({ date: d.date, value: d.map.get(reviewer) ?? 0 }));
+      const series = data.map((d) => ({
+        date: d.date,
+        value: d.map.get(reviewer) ?? 0,
+      }));
       g.append("path")
         .datum(series)
-        .attr("fill","none")
+        .attr("fill", "none")
         .attr("stroke", colorFor(reviewer))
-        .attr("stroke-width",2)
+        .attr("stroke-width", 2)
         .attr("d", lineGen)
         .attr("opacity", 0.95);
 
-      g.selectAll(`circle.dot-${reviewer.replace(/\W/g,'_')}`).data(series).enter().append("circle")
-        .attr("cx", d=>x(d.date)).attr("cy", d=>y(d.value)).attr("r", 2.8)
-        .attr("fill", colorFor(reviewer)).attr("stroke","#1e1e2e").attr("stroke-width",1)
-        .attr("opacity", d=> d.value===0 ? 0.25 : 0.95);
+      g.selectAll(`circle.dot-${reviewer.replace(/\W/g, "_")}`)
+        .data(series)
+        .enter()
+        .append("circle")
+        .attr("cx", (d) => x(d.date))
+        .attr("cy", (d) => y(d.value))
+        .attr("r", 2.8)
+        .attr("fill", colorFor(reviewer))
+        .attr("stroke", "#1e1e2e")
+        .attr("stroke-width", 1)
+        .attr("opacity", (d) => (d.value === 0 ? 0.25 : 0.95));
     }
 
-    const overlay = g.append("rect").attr("width", innerW).attr("height", innerH).attr("fill","transparent").style("cursor","crosshair");
+    const overlay = g
+      .append("rect")
+      .attr("width", innerW)
+      .attr("height", innerH)
+      .attr("fill", "transparent")
+      .style("cursor", "crosshair");
 
-    const bisect = d3.bisector((d: typeof data[0])=> d.date).center;
+    const bisect = d3.bisector((d: (typeof data)[0]) => d.date).center;
 
-    overlay.on("mousemove", (event: MouseEvent) => {
-      const [mx, my] = d3.pointer(event);
-      const xDate = x.invert(mx);
-      const idx = bisect(data, xDate);
-      const clamped = Math.max(0, Math.min(data.length-1, idx));
-      const d = data[clamped];
-      const values = reviewerOrder().filter(r=>!hidden().has(r)).map(r=> ({ reviewer: r, value: d.map.get(r) ?? 0, color: colorFor(r) })).filter(v=> v.value>0).sort((a,b)=> b.value-a.value);
+    overlay
+      .on("mousemove", (event: MouseEvent) => {
+        const [mx, my] = d3.pointer(event);
+        const xDate = x.invert(mx);
+        const idx = bisect(data, xDate);
+        const clamped = Math.max(0, Math.min(data.length - 1, idx));
+        const d = data[clamped];
+        const values = reviewerOrder()
+          .filter((r) => !hidden().has(r))
+          .map((r) => ({
+            reviewer: r,
+            value: d.map.get(r) ?? 0,
+            color: colorFor(r),
+          }))
+          .filter((v) => v.value > 0)
+          .sort((a, b) => b.value - a.value);
 
-      const [px] = d3.pointer(event, containerRef);
+        const [px] = d3.pointer(event, containerRef);
 
-      setTooltip({ x: px, y: my + margin.top, date: d.date, values });
+        setTooltip({ x: px, y: my + margin.top, date: d.date, values });
 
-      g.selectAll(".hover-line").remove();
-      g.append("line").attr("class","hover-line").attr("x1", x(d.date)).attr("x2", x(d.date)).attr("y1",0).attr("y2",innerH).attr("stroke","rgba(137,180,250,0.5)").attr("stroke-dasharray","4,4").attr("pointer-events","none");
+        g.selectAll(".hover-line").remove();
+        g.append("line")
+          .attr("class", "hover-line")
+          .attr("x1", x(d.date))
+          .attr("x2", x(d.date))
+          .attr("y1", 0)
+          .attr("y2", innerH)
+          .attr("stroke", "rgba(137,180,250,0.5)")
+          .attr("stroke-dasharray", "4,4")
+          .attr("pointer-events", "none");
 
-      g.selectAll(".hover-dot").remove();
-      for (const v of values) {
-        g.append("circle").attr("class","hover-dot").attr("cx", x(d.date)).attr("cy", y(v.value)).attr("r",4).attr("fill", v.color).attr("stroke","white").attr("stroke-width",1.2).attr("pointer-events","none");
-      }
-    }).on("mouseleave", () => {
-      setTooltip(null);
-      g.selectAll(".hover-line").remove();
-      g.selectAll(".hover-dot").remove();
-    });
+        g.selectAll(".hover-dot").remove();
+        for (const v of values) {
+          g.append("circle")
+            .attr("class", "hover-dot")
+            .attr("cx", x(d.date))
+            .attr("cy", y(v.value))
+            .attr("r", 4)
+            .attr("fill", v.color)
+            .attr("stroke", "white")
+            .attr("stroke-width", 1.2)
+            .attr("pointer-events", "none");
+        }
+      })
+      .on("mouseleave", () => {
+        setTooltip(null);
+        g.selectAll(".hover-line").remove();
+        g.selectAll(".hover-dot").remove();
+      });
   };
 
   onMount(() => {
     const ro = new ResizeObserver(() => draw());
     ro.observe(containerRef);
-    onCleanup(()=> ro.disconnect());
+    onCleanup(() => ro.disconnect());
   });
 
-  createEffect(()=> {
-
-    parsedDays(); hidden(); reviewerOrder();
+  createEffect(() => {
+    parsedDays();
+    hidden();
+    reviewerOrder();
     draw();
   });
 
   return (
     <div class="date-chart d3-date-chart">
-      <Show when={parsedDays().length===0}>
+      <Show when={parsedDays().length === 0}>
         <div class="chart-empty">No activity data yet</div>
       </Show>
-      <div ref={containerRef} class="d3-chart-container" style={{ position: "relative", width: "100%" }}>
+      <div
+        ref={containerRef}
+        class="d3-chart-container"
+        style={{ position: "relative", width: "100%" }}
+      >
         <svg ref={svgRef!} class="d3-line-svg" />
         <Show when={tooltip()}>
-          {(t)=> (
-            <div class="d3-tooltip" style={{ left: `${Math.min(containerRef.clientWidth - 160, Math.max(8, t().x + 12))}px`, top: `${Math.min(280, t().y + 8)}px` }}>
-              <div class="d3-tooltip-date">{t().date.toLocaleDateString(undefined, { month:"short", day:"numeric" })}</div>
+          {(t) => (
+            <div
+              class="d3-tooltip"
+              style={{
+                left: `${Math.min(containerRef.clientWidth - 160, Math.max(8, t().x + 12))}px`,
+                top: `${Math.min(280, t().y + 8)}px`,
+              }}
+            >
+              <div class="d3-tooltip-date">
+                {t().date.toLocaleDateString(undefined, {
+                  month: "short",
+                  day: "numeric",
+                })}
+              </div>
               <For each={t().values}>
-                {(v)=> (
+                {(v) => (
                   <div class="d3-tooltip-row">
                     <span class="dc-swatch" style={{ background: v.color }} />
                     <span>{v.reviewer}</span>
@@ -461,8 +712,13 @@ const ReviewsByDateChart: Component<{ graph: Graph }> = (props) => {
                   </div>
                 )}
               </For>
-              <Show when={t().values.length===0}>
-                <div class="d3-tooltip-row" style={{ color:"#a6adc8", "font-style":"italic" as any }}>No reviews</div>
+              <Show when={t().values.length === 0}>
+                <div
+                  class="d3-tooltip-row"
+                  style={{ color: "#a6adc8", "font-style": "italic" as any }}
+                >
+                  No reviews
+                </div>
               </Show>
             </div>
           )}
@@ -479,7 +735,9 @@ const ReviewsByDateChart: Component<{ graph: Graph }> = (props) => {
             >
               <span class="dc-swatch" style={{ background: colorFor(name) }} />
               {name}
-              <span class="dc-legend-total">{legendTotals().get(name) ?? 0}</span>
+              <span class="dc-legend-total">
+                {legendTotals().get(name) ?? 0}
+              </span>
             </button>
           )}
         </For>
@@ -488,7 +746,12 @@ const ReviewsByDateChart: Component<{ graph: Graph }> = (props) => {
   );
 };
 
-type SortKey = "devlogsLastThreeDays" | "projectsReviewedLastThreeDays" | "projectsReviewedToday" | "lockedInSoFarThisWeek" | "stardustEarnt";
+type SortKey =
+  | "devlogsLastThreeDays"
+  | "projectsReviewedLastThreeDays"
+  | "projectsReviewedToday"
+  | "lockedInSoFarThisWeek"
+  | "stardustEarnt";
 
 type SortDirection = "asc" | "desc";
 
@@ -508,7 +771,10 @@ const formatRounded = (n: number): string => Math.round(n).toString();
 
 const formatHumanDate = (date: string): string => {
   const [y, m, d] = date.split("-").map(Number);
-  return new Date(y, m - 1, d).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  return new Date(y, m - 1, d).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+  });
 };
 
 const daysSince = (date: string): number => {
@@ -516,7 +782,9 @@ const daysSince = (date: string): number => {
   const oldest = new Date(y, m - 1, d);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  return Math.round((today.getTime() - oldest.getTime()) / (24 * 60 * 60 * 1000));
+  return Math.round(
+    (today.getTime() - oldest.getTime()) / (24 * 60 * 60 * 1000),
+  );
 };
 
 const App = (): JSX.Element => {
@@ -524,6 +792,7 @@ const App = (): JSX.Element => {
   const [sortDir, setSortDir] = createSignal<SortDirection>("desc");
   const [now, setNow] = createSignal(Date.now());
   const [isMobile, setIsMobile] = createSignal(false);
+  const isGotg = (): boolean => window.location.hostname === "gotg.gizzy.gay";
 
   onMount(() => {
     const check = () => setIsMobile(window.innerWidth < 600);
@@ -561,7 +830,8 @@ const App = (): JSX.Element => {
     return `${minutes}m ${seconds}s`;
   };
 
-  const reviewerLb = (): ReviewerEntry[] => statsQuery.data?.data.reviewerLb ?? [];
+  const reviewerLb = (): ReviewerEntry[] =>
+    statsQuery.data?.data.reviewerLb ?? [];
 
   const sorted = (): ReviewerEntry[] => {
     return [...reviewerLb()].sort((a, b) => {
@@ -586,8 +856,25 @@ const App = (): JSX.Element => {
 
   return (
     <div class="app">
+    <Show
+      when={isGotg()}
+    >
+      <>
+        <Title>Guardians Of The Galaxy</Title>
+        <Meta property="og:title" content="GOIStats" />
+        <Meta property="og:description" content="Oooo! Finally stats on the Guardians of Integrity team!" />
+        <Meta property="og:url" content="https://gotg.gizzy.gay" />
+        <Meta property="og:image" content="https://gotg.gizzy.gay/oooo.jpg" />
+        <Meta property="og:type" content="website" />
+        <Meta property="og:site_name" content="GOIStats" />
+        <Meta name="twitter:card" content="summary_large_image" />
+        <Meta name="twitter:title" content="GOIStats" />
+        <Meta name="twitter:description" content="Oooo! Finally stats on the Guardians of Integrity team!" />
+        <Meta name="twitter:image" content="https://gotg.gizzy.gay/oooo.jpg" />
+      </>
+    </Show>
       <header>
-        <h1>Guardians of Integrity</h1>
+        <h1>{isGotg() ? "Guardians Of The Galaxy" : "Guardians of Integrity"}</h1>
         <Show when={statsQuery.data}>
           {(resp) => (
             <div class="header-meta">
@@ -605,62 +892,91 @@ const App = (): JSX.Element => {
       <Show when={statsQuery.data}>
         {(resp) => (
           <>
-          <div class="stat-cards">
-            <div class="stat-card">
-              <span class="stat-label">Pending Reviews</span>
-              <span class="stat-value">{formatRounded(resp().data.queueCount)}</span>
+            <div class="stat-cards">
+              <div class="stat-card">
+                <span class="stat-label">Pending Reviews</span>
+                <span class="stat-value">
+                  {formatRounded(resp().data.queueCount)}
+                </span>
+              </div>
+              <div class="stat-card">
+                <span class="stat-label">Pending Devlogs</span>
+                <span class="stat-value">
+                  {formatRounded(resp().data.pendingDevlogs)}
+                </span>
+              </div>
+              <div class="stat-card">
+                <span class="stat-label">Pending Hours</span>
+                <span class="stat-value">
+                  {formatRounded(resp().data.pendingHours)}
+                </span>
+              </div>
+              <div class="stat-card">
+                <span class="stat-label">Oldest In Queue</span>
+                <span class="stat-value">
+                  {formatHumanDate(resp().data.oldestInQueue)}
+                </span>
+                <span class="stat-subtext">
+                  {daysSince(resp().data.oldestInQueue)} days old
+                </span>
+              </div>
+              <div class="stat-card">
+                <span class="stat-label">Reviews Today</span>
+                <span class="stat-value">
+                  {resp().data.reviewerLb.reduce(
+                    (sum, r) => sum + r.projectsReviewedToday,
+                    0,
+                  )}
+                </span>
+                <span class="stat-subtext">projects reviewed today</span>
+              </div>
+              <div class="stat-card">
+                <span class="stat-label">Locked In</span>
+                <span
+                  class="stat-value"
+                  style={{
+                    color: resp().data.reviewerLb.some((r) => r.lockedInStatus)
+                      ? "var(--yellow)"
+                      : undefined,
+                  }}
+                >
+                  {
+                    resp().data.reviewerLb.filter((r) => r.lockedInStatus)
+                      .length
+                  }
+                </span>
+                <span class="stat-subtext">
+                  {(() => {
+                    const locked = resp().data.reviewerLb.filter(
+                      (r) => r.lockedInStatus,
+                    ).length;
+                    const total = resp().data.reviewerLb.length;
+                    return `${locked} of ${total} reviewers`;
+                  })()}
+                </span>
+              </div>
             </div>
-            <div class="stat-card">
-              <span class="stat-label">Pending Devlogs</span>
-              <span class="stat-value">{formatRounded(resp().data.pendingDevlogs)}</span>
+            <div class="tier-card">
+              <div class="tier-card-head">
+                <span class="stat-label">Stardust from pending devlogs</span>
+                <span class="tier-subtext">
+                  {resp().data.pendingDevlogs} pending devlogs
+                </span>
+              </div>
+              <div class="tier-list">
+                <For each={STARDUST_TIERS}>
+                  {(tier) => (
+                    <div class="tier-row">
+                      <span class="tier-range">{tier.label}</span>
+                      <span class="tier-rate">{tier.rate} / devlog</span>
+                      <span class="tier-earn">
+                        {Math.round(tier.rate * resp().data.pendingDevlogs)}
+                      </span>
+                    </div>
+                  )}
+                </For>
+              </div>
             </div>
-            <div class="stat-card">
-              <span class="stat-label">Pending Hours</span>
-              <span class="stat-value">{formatRounded(resp().data.pendingHours)}</span>
-            </div>
-            <div class="stat-card">
-              <span class="stat-label">Oldest In Queue</span>
-              <span class="stat-value">{formatHumanDate(resp().data.oldestInQueue)}</span>
-              <span class="stat-subtext">{daysSince(resp().data.oldestInQueue)} days old</span>
-            </div>
-            <div class="stat-card">
-              <span class="stat-label">Reviews Today</span>
-              <span class="stat-value">{resp().data.reviewerLb.reduce((sum, r) => sum + r.projectsReviewedToday, 0)}</span>
-              <span class="stat-subtext">projects reviewed today</span>
-            </div>
-            <div class="stat-card">
-              <span class="stat-label">Locked In</span>
-              <span class="stat-value" style={{ color: resp().data.reviewerLb.some((r) => r.lockedInStatus) ? "var(--yellow)" : undefined }}>
-                {resp().data.reviewerLb.filter((r) => r.lockedInStatus).length}
-              </span>
-              <span class="stat-subtext">
-                {(() => {
-                  const locked = resp().data.reviewerLb.filter((r) => r.lockedInStatus).length;
-                  const total = resp().data.reviewerLb.length;
-                  return `${locked} of ${total} reviewers`;
-                })()}
-              </span>
-            </div>
-          </div>
-          <div class="tier-card">
-            <div class="tier-card-head">
-              <span class="stat-label">Stardust from pending devlogs</span>
-              <span class="tier-subtext">{resp().data.pendingDevlogs} pending devlogs</span>
-            </div>
-            <div class="tier-list">
-              <For each={STARDUST_TIERS}>
-                {(tier) => (
-                  <div class="tier-row">
-                    <span class="tier-range">{tier.label}</span>
-                    <span class="tier-rate">{tier.rate} / devlog</span>
-                    <span class="tier-earn">
-                      {Math.round(tier.rate * resp().data.pendingDevlogs)}
-                    </span>
-                  </div>
-                )}
-              </For>
-            </div>
-          </div>
           </>
         )}
       </Show>
@@ -691,19 +1007,38 @@ const App = (): JSX.Element => {
                       <tr>
                         <th>#</th>
                         <th>Reviewer</th>
-                        <th class="sortable" onClick={() => toggleSort("devlogsLastThreeDays")}>
-                          Devlogs <span class="th-sub">(3 day)</span>{sortIndicator("devlogsLastThreeDays")}
+                        <th
+                          class="sortable"
+                          onClick={() => toggleSort("devlogsLastThreeDays")}
+                        >
+                          Devlogs <span class="th-sub">(3 day)</span>
+                          {sortIndicator("devlogsLastThreeDays")}
                         </th>
-                        <th class="sortable" onClick={() => toggleSort("projectsReviewedLastThreeDays")}>
-                          Reviews <span class="th-sub">(3 days)</span>{sortIndicator("projectsReviewedLastThreeDays")}
+                        <th
+                          class="sortable"
+                          onClick={() =>
+                            toggleSort("projectsReviewedLastThreeDays")
+                          }
+                        >
+                          Reviews <span class="th-sub">(3 days)</span>
+                          {sortIndicator("projectsReviewedLastThreeDays")}
                         </th>
-                        <th class="sortable" onClick={() => toggleSort("projectsReviewedToday")}>
+                        <th
+                          class="sortable"
+                          onClick={() => toggleSort("projectsReviewedToday")}
+                        >
                           Reviews Today{sortIndicator("projectsReviewedToday")}
                         </th>
-                        <th class="sortable" onClick={() => toggleSort("lockedInSoFarThisWeek")}>
+                        <th
+                          class="sortable"
+                          onClick={() => toggleSort("lockedInSoFarThisWeek")}
+                        >
                           Locked In{sortIndicator("lockedInSoFarThisWeek")}
                         </th>
-                        <th class="sortable" onClick={() => toggleSort("stardustEarnt")}>
+                        <th
+                          class="sortable"
+                          onClick={() => toggleSort("stardustEarnt")}
+                        >
                           Stardust{sortIndicator("stardustEarnt")}
                         </th>
                       </tr>
@@ -713,12 +1048,24 @@ const App = (): JSX.Element => {
                         {(entry, i) => (
                           <tr class={entry.lockedInStatus ? "locked-row" : ""}>
                             <td>{i() + 1}</td>
-                            <td class="reviewer-name"><a class="a-tag" href={"https://stardance.hackclub.com/@" + entry.reviewer}>{entry.reviewer}</a></td>
+                            <td class="reviewer-name">
+                              <a
+                                class="a-tag"
+                                href={
+                                  "https://stardance.hackclub.com/@" +
+                                  entry.reviewer
+                                }
+                              >
+                                {entry.reviewer}
+                              </a>
+                            </td>
                             <td>{entry.devlogsLastThreeDays}</td>
                             <td>{entry.projectsReviewedLastThreeDays}</td>
                             <td>{entry.projectsReviewedToday}</td>
                             <td>
-                              <span class={`lock-badge ${entry.lockedInStatus ? "locked" : ""}`}>
+                              <span
+                                class={`lock-badge ${entry.lockedInStatus ? "locked" : ""}`}
+                              >
                                 {entry.lockedInSoFarThisWeek}
                               </span>
                             </td>
@@ -734,36 +1081,83 @@ const App = (): JSX.Element => {
               <Show when={isMobile()}>
                 <div class="lb-sort-bar">
                   <span class="lb-sort-label">Sort by</span>
-                  <button class={`lb-sort-btn ${sortKey() === "stardustEarnt" ? "active" : ""}`} onClick={() => toggleSort("stardustEarnt")}>Stardust</button>
-                  <button class={`lb-sort-btn ${sortKey() === "devlogsLastThreeDays" ? "active" : ""}`} onClick={() => toggleSort("devlogsLastThreeDays")}>Devlogs</button>
-                  <button class={`lb-sort-btn ${sortKey() === "projectsReviewedLastThreeDays" ? "active" : ""}`} onClick={() => toggleSort("projectsReviewedLastThreeDays")}>Reviews</button>
-                  <button class={`lb-sort-btn ${sortKey() === "lockedInSoFarThisWeek" ? "active" : ""}`} onClick={() => toggleSort("lockedInSoFarThisWeek")}>Locked In</button>
+                  <button
+                    class={`lb-sort-btn ${sortKey() === "stardustEarnt" ? "active" : ""}`}
+                    onClick={() => toggleSort("stardustEarnt")}
+                  >
+                    Stardust
+                  </button>
+                  <button
+                    class={`lb-sort-btn ${sortKey() === "devlogsLastThreeDays" ? "active" : ""}`}
+                    onClick={() => toggleSort("devlogsLastThreeDays")}
+                  >
+                    Devlogs
+                  </button>
+                  <button
+                    class={`lb-sort-btn ${sortKey() === "projectsReviewedLastThreeDays" ? "active" : ""}`}
+                    onClick={() => toggleSort("projectsReviewedLastThreeDays")}
+                  >
+                    Reviews
+                  </button>
+                  <button
+                    class={`lb-sort-btn ${sortKey() === "lockedInSoFarThisWeek" ? "active" : ""}`}
+                    onClick={() => toggleSort("lockedInSoFarThisWeek")}
+                  >
+                    Locked In
+                  </button>
                 </div>
                 <div class="lb-cards">
                   <For each={sorted()}>
                     {(entry, i) => (
-                      <div class={`lb-card ${entry.lockedInStatus ? "lb-card-locked" : ""}`}>
+                      <div
+                        class={`lb-card ${entry.lockedInStatus ? "lb-card-locked" : ""}`}
+                      >
                         <div class="lb-card-head">
                           <span class="lb-card-rank">{i() + 1}</span>
-                          <a class="lb-card-name a-tag" href={"https://stardance.hackclub.com/@" + entry.reviewer}>{entry.reviewer}</a>
-                          <span class="lb-card-stardust">{entry.stardustEarnt.toLocaleString()}<img class="lb-card-dust" src="/stardust-18e809ef.avif" alt="" /></span>
+                          <a
+                            class="lb-card-name a-tag"
+                            href={
+                              "https://stardance.hackclub.com/@" +
+                              entry.reviewer
+                            }
+                          >
+                            {entry.reviewer}
+                          </a>
+                          <span class="lb-card-stardust">
+                            {entry.stardustEarnt.toLocaleString()}
+                            <img
+                              class="lb-card-dust"
+                              src="/stardust-18e809ef.avif"
+                              alt=""
+                            />
+                          </span>
                         </div>
                         <div class="lb-card-stats">
                           <div class="lb-card-stat">
                             <span class="lb-card-stat-label">Devlogs</span>
-                            <span class="lb-card-stat-val">{entry.devlogsLastThreeDays}</span>
+                            <span class="lb-card-stat-val">
+                              {entry.devlogsLastThreeDays}
+                            </span>
                           </div>
                           <div class="lb-card-stat">
                             <span class="lb-card-stat-label">Reviews (3d)</span>
-                            <span class="lb-card-stat-val">{entry.projectsReviewedLastThreeDays}</span>
+                            <span class="lb-card-stat-val">
+                              {entry.projectsReviewedLastThreeDays}
+                            </span>
                           </div>
                           <div class="lb-card-stat">
                             <span class="lb-card-stat-label">Today</span>
-                            <span class="lb-card-stat-val">{entry.projectsReviewedToday}</span>
+                            <span class="lb-card-stat-val">
+                              {entry.projectsReviewedToday}
+                            </span>
                           </div>
                           <div class="lb-card-stat">
                             <span class="lb-card-stat-label">Locked In</span>
-                            <span class={`lb-card-stat-val ${entry.lockedInStatus ? "locked" : ""}`}>{entry.lockedInSoFarThisWeek}</span>
+                            <span
+                              class={`lb-card-stat-val ${entry.lockedInStatus ? "locked" : ""}`}
+                            >
+                              {entry.lockedInSoFarThisWeek}
+                            </span>
                           </div>
                         </div>
                       </div>

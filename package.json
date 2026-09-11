@@ -14,6 +14,7 @@
   },
   "dependencies": {
     "@elysiajs/html": "^1.2.0",
+    "@solidjs/meta": "^0.29.4",
     "@tanstack/solid-query": "^5.102.8",
     "d3": "^7.9.0",
     "elysia": "^1.2.25",
