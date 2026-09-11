@@ -39,6 +39,10 @@ const PALETTE = [
   "#a6adc8",
 ] as const;
 
+const DEFAULT_HIDDEN = ["hardware"];
+const isDefaultHidden = (type: string): boolean =>
+  DEFAULT_HIDDEN.some((p) => type.toLowerCase().includes(p));
+
 const parseGraphDate = (str: string): Date | null => {
   const iso = str.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
   if (iso) return new Date(+iso[1], +iso[2] - 1, +iso[3]);
@@ -124,9 +128,12 @@ const ReviewChart: Component<{ graph: Graph }> = (props) => {
   );
 };
 
-const CategoriesPieChart: Component<{ categories: CategoryEntry[] }> = (
-  props,
-) => {
+const CategoriesPieChart: Component<{
+  categories: CategoryEntry[];
+  hidden: Set<string>;
+  overrides: Set<string>;
+  onToggle: (type: string) => void;
+}> = (props) => {
   let containerRef!: HTMLDivElement;
   let svgRef!: SVGSVGElement;
   const [hovered, setHovered] = createSignal<{
@@ -136,16 +143,10 @@ const CategoriesPieChart: Component<{ categories: CategoryEntry[] }> = (
     x: number;
     y: number;
   } | null>(null);
-  const DEFAULT_HIDDEN = ["hardware"];
-  const isDefaultHidden = (type: string) =>
-    DEFAULT_HIDDEN.some((p) => type.toLowerCase().includes(p));
-
-  const [hidden, setHidden] = createSignal<Set<string>>(new Set());
-  const [overrides, setOverrides] = createSignal<Set<string>>(new Set());
 
   const isVisible = (type: string) => {
-    if (overrides().has(type)) return true;
-    if (hidden().has(type)) return false;
+    if (props.overrides.has(type)) return true;
+    if (props.hidden.has(type)) return false;
     return !isDefaultHidden(type);
   };
 
@@ -171,24 +172,6 @@ const CategoriesPieChart: Component<{ categories: CategoryEntry[] }> = (
       .domain(cats.map((c) => c.type))
       .range(PALETTE as unknown as string[]);
   });
-
-  const toggle = (type: string) => {
-    if (isDefaultHidden(type)) {
-      setOverrides((prev) => {
-        const next = new Set(prev);
-        if (next.has(type)) next.delete(type);
-        else next.add(type);
-        return next;
-      });
-    } else {
-      setHidden((prev) => {
-        const next = new Set(prev);
-        if (next.has(type)) next.delete(type);
-        else next.add(type);
-        return next;
-      });
-    }
-  };
 
   const draw = () => {
     if (!containerRef || !svgRef) return;
@@ -302,8 +285,8 @@ const CategoriesPieChart: Component<{ categories: CategoryEntry[] }> = (
 
   createEffect(() => {
     filtered();
-    hidden();
-    overrides();
+    props.hidden;
+    props.overrides;
     total();
     colorScale();
     draw();
@@ -347,7 +330,7 @@ const CategoriesPieChart: Component<{ categories: CategoryEntry[] }> = (
               <button
                 class="pie-legend-item"
                 classList={{ "pie-legend-hidden": isHidden() }}
-                onClick={() => toggle(cat.type)}
+                onClick={() => props.onToggle(cat.type)}
                 type="button"
               >
                 <span
@@ -836,6 +819,42 @@ const App = (): JSX.Element => {
     },
   }));
 
+  const [hiddenCats, setHiddenCats] = createSignal<Set<string>>(new Set());
+  const [catOverrides, setCatOverrides] = createSignal<Set<string>>(new Set());
+
+  const isCategoryVisible = (type: string): boolean => {
+    if (catOverrides().has(type)) return true;
+    if (hiddenCats().has(type)) return false;
+    return !isDefaultHidden(type);
+  };
+
+  const pendingReviews = createMemo(() => {
+    const q = statsQuery.data?.data.queueCount ?? 0;
+    const hiddenSum = (statsQuery.data?.data.categories ?? [])
+      .filter((c) => c.type.toLowerCase() !== "all types")
+      .filter((c) => !isCategoryVisible(c.type))
+      .reduce((s, c) => s + c.count, 0);
+    return Math.max(0, q - hiddenSum);
+  });
+
+  const toggleCategory = (type: string): void => {
+    if (isDefaultHidden(type)) {
+      setCatOverrides((prev) => {
+        const next = new Set(prev);
+        if (next.has(type)) next.delete(type);
+        else next.add(type);
+        return next;
+      });
+    } else {
+      setHiddenCats((prev) => {
+        const next = new Set(prev);
+        if (next.has(type)) next.delete(type);
+        else next.add(type);
+        return next;
+      });
+    }
+  };
+
   const refreshInMs = (): number => {
     const nextRefresh = statsQuery.data?.nextRefresh;
     if (!nextRefresh) return 0;
@@ -926,8 +945,9 @@ const App = (): JSX.Element => {
               <div class="stat-card">
                 <span class="stat-label">Pending Reviews</span>
                 <span class="stat-value">
-                  {formatRounded(resp().data.queueCount)}
+                  {formatRounded(pendingReviews())}
                 </span>
+                <span class="stat-subtext">shown categories only</span>
               </div>
               <div class="stat-card">
                 <span class="stat-label">Pending Devlogs</span>
@@ -1200,7 +1220,12 @@ const App = (): JSX.Element => {
             <section class="chart-section">
               <h2>Categories</h2>
               <div class="categories-card">
-                <CategoriesPieChart categories={resp().data.categories} />
+                <CategoriesPieChart
+                  categories={resp().data.categories}
+                  hidden={hiddenCats()}
+                  overrides={catOverrides()}
+                  onToggle={toggleCategory}
+                />
               </div>
             </section>
 
