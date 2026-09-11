@@ -39,6 +39,8 @@ const fetchGoiStats = async (): Promise<GoiStats> => {
     throw new Error(`HCES API returned unexpected data shape: ${parsed.error.message}`);
   }
 
+  console.log(parsed)
+
   return parsed.data;
 }
 

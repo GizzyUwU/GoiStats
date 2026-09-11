@@ -42,6 +42,9 @@ export const personalStatsSchema = z.object({
 export const categoryEntrySchema = z.object({
   type: z.string(),
   count: z.number().min(0),
+  pendingHours: z.number().min(0),
+  pendingDevlogs: z.number().min(0),
+  oldestInQueue: z.iso.date(),
 });
 
 export const goiStatsSchema = z.object({

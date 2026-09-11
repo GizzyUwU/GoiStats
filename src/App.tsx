@@ -837,6 +837,52 @@ const App = (): JSX.Element => {
     return Math.max(0, q - hiddenSum);
   });
 
+  const categoryList = createMemo(() =>
+    (statsQuery.data?.data.categories ?? []).filter(
+      (c) => c.type.toLowerCase() !== "all types",
+    ),
+  );
+
+  const visibleCategories = createMemo(() =>
+    categoryList().filter((c) => isCategoryVisible(c.type)),
+  );
+
+  const hasCategoryData = createMemo(() => categoryList().length > 0);
+
+  const filteredPendingDevlogs = createMemo(() => {
+    const cats = visibleCategories();
+    if (cats.length === 0) {
+      return hasCategoryData()
+        ? 0
+        : (statsQuery.data?.data.pendingDevlogs ?? 0);
+    }
+    return cats.reduce((s, c) => s + c.pendingDevlogs, 0);
+  });
+
+  const filteredPendingHours = createMemo(() => {
+    const cats = visibleCategories();
+    if (cats.length === 0) {
+      return hasCategoryData()
+        ? 0
+        : (statsQuery.data?.data.pendingHours ?? 0);
+    }
+    return cats.reduce((s, c) => s + c.pendingHours, 0);
+  });
+
+  const filteredOldestInQueue = createMemo<string | null>(() => {
+    const cats = visibleCategories();
+    if (cats.length === 0) {
+      return hasCategoryData()
+        ? null
+        : (statsQuery.data?.data.oldestInQueue ?? null);
+    }
+    return cats.reduce<string | null>(
+      (oldest, c) =>
+        oldest === null || c.oldestInQueue < oldest ? c.oldestInQueue : oldest,
+      null,
+    );
+  });
+
   const toggleCategory = (type: string): void => {
     if (isDefaultHidden(type)) {
       setCatOverrides((prev) => {
@@ -952,22 +998,30 @@ const App = (): JSX.Element => {
               <div class="stat-card">
                 <span class="stat-label">Pending Devlogs</span>
                 <span class="stat-value">
-                  {formatRounded(resp().data.pendingDevlogs)}
+                  {formatRounded(filteredPendingDevlogs())}
                 </span>
+                <span class="stat-subtext">shown categories only</span>
               </div>
               <div class="stat-card">
                 <span class="stat-label">Pending Hours</span>
                 <span class="stat-value">
-                  {formatRounded(resp().data.pendingHours)}
+                  {formatRounded(filteredPendingHours())}
                 </span>
+                <span class="stat-subtext">shown categories only</span>
               </div>
               <div class="stat-card">
                 <span class="stat-label">Oldest In Queue</span>
                 <span class="stat-value">
-                  {formatHumanDate(resp().data.oldestInQueue)}
+                  {filteredOldestInQueue()
+                    ? formatHumanDate(filteredOldestInQueue()!)
+                    : "\u2014"}
                 </span>
                 <span class="stat-subtext">
-                  {daysSince(resp().data.oldestInQueue)} days old
+                  {filteredOldestInQueue()
+                    ? `${daysSince(filteredOldestInQueue()!)} days old`
+                    : hasCategoryData()
+                      ? "no categories shown"
+                      : ""}
                 </span>
               </div>
               <div class="stat-card">
@@ -1010,7 +1064,7 @@ const App = (): JSX.Element => {
               <div class="tier-card-head">
                 <span class="stat-label">Stardust from pending devlogs</span>
                 <span class="tier-subtext">
-                  {resp().data.pendingDevlogs} pending devlogs
+                  {filteredPendingDevlogs()} pending devlogs
                 </span>
               </div>
               <div class="tier-list">
@@ -1020,7 +1074,7 @@ const App = (): JSX.Element => {
                       <span class="tier-range">{tier.label}</span>
                       <span class="tier-rate">{tier.rate} / devlog</span>
                       <span class="tier-earn">
-                        {Math.round(tier.rate * resp().data.pendingDevlogs)}
+                        {Math.round(tier.rate * filteredPendingDevlogs())}
                       </span>
                     </div>
                   )}
