@@ -136,7 +136,18 @@ const CategoriesPieChart: Component<{ categories: CategoryEntry[] }> = (
     x: number;
     y: number;
   } | null>(null);
+  const DEFAULT_HIDDEN = ["hardware"];
+  const isDefaultHidden = (type: string) =>
+    DEFAULT_HIDDEN.some((p) => type.toLowerCase().includes(p));
+
   const [hidden, setHidden] = createSignal<Set<string>>(new Set());
+  const [overrides, setOverrides] = createSignal<Set<string>>(new Set());
+
+  const isVisible = (type: string) => {
+    if (overrides().has(type)) return true;
+    if (hidden().has(type)) return false;
+    return !isDefaultHidden(type);
+  };
 
   const filtered = createMemo(() => {
     const cats = props.categories.filter(
@@ -147,7 +158,7 @@ const CategoriesPieChart: Component<{ categories: CategoryEntry[] }> = (
   });
 
   const visibleData = createMemo(() =>
-    filtered().filter((c) => !hidden().has(c.type)),
+    filtered().filter((c) => isVisible(c.type)),
   );
   const total = createMemo(() =>
     visibleData().reduce((s, c) => s + c.count, 0),
@@ -162,12 +173,21 @@ const CategoriesPieChart: Component<{ categories: CategoryEntry[] }> = (
   });
 
   const toggle = (type: string) => {
-    setHidden((prev) => {
-      const next = new Set(prev);
-      if (next.has(type)) next.delete(type);
-      else next.add(type);
-      return next;
-    });
+    if (isDefaultHidden(type)) {
+      setOverrides((prev) => {
+        const next = new Set(prev);
+        if (next.has(type)) next.delete(type);
+        else next.add(type);
+        return next;
+      });
+    } else {
+      setHidden((prev) => {
+        const next = new Set(prev);
+        if (next.has(type)) next.delete(type);
+        else next.add(type);
+        return next;
+      });
+    }
   };
 
   const draw = () => {
@@ -283,6 +303,7 @@ const CategoriesPieChart: Component<{ categories: CategoryEntry[] }> = (
   createEffect(() => {
     filtered();
     hidden();
+    overrides();
     total();
     colorScale();
     draw();
@@ -321,7 +342,7 @@ const CategoriesPieChart: Component<{ categories: CategoryEntry[] }> = (
       <div class="pie-legend">
         <For each={filtered()}>
           {(cat) => {
-            const isHidden = () => hidden().has(cat.type);
+            const isHidden = () => !isVisible(cat.type);
             return (
               <button
                 class="pie-legend-item"
