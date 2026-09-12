@@ -1114,6 +1114,7 @@ const App = (): JSX.Element => {
                         <th
                           class="sortable"
                           onClick={() => toggleSort("devlogsLastThreeDays")}
+                          title="Devlogs reviewed in the last 3 days — reviewers with nothing in that window aren't ranked"
                         >
                           Devlogs <span class="th-sub">(3 day)</span>
                           {sortIndicator("devlogsLastThreeDays")}
@@ -1123,25 +1124,30 @@ const App = (): JSX.Element => {
                           onClick={() =>
                             toggleSort("projectsReviewedLastThreeDays")
                           }
+                          title="Projects completed in the last 3 days — one per ship review, however many devlogs it covered"
                         >
-                          Reviews <span class="th-sub">(3 days)</span>
+                          Projects <span class="th-sub">(3 days)</span>
                           {sortIndicator("projectsReviewedLastThreeDays")}
                         </th>
                         <th
                           class="sortable"
                           onClick={() => toggleSort("projectsReviewedToday")}
+                          title="Projects completed since 4pm ET today (goal: 20/day)"
                         >
-                          Reviews Today{sortIndicator("projectsReviewedToday")}
+                          Prrojects <span class="th-sub">(Today)</span>
+                          {sortIndicator("projectsReviewedToday")}
                         </th>
                         <th
                           class="sortable"
                           onClick={() => toggleSort("lockedInSoFarThisWeek")}
+                          title="Devlogs reviewed per day so far this review week (goal: 30/day)"
                         >
                           Locked In{sortIndicator("lockedInSoFarThisWeek")}
                         </th>
                         <th
                           class="sortable"
                           onClick={() => toggleSort("stardustEarnt")}
+                          title="Projected payout across all devlogs reviewed, all time"
                         >
                           Stardust{sortIndicator("stardustEarnt")}
                         </th>
