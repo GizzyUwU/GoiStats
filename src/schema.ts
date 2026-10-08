@@ -42,17 +42,25 @@ export const personalStatsSchema = z.object({
 export const categoryEntrySchema = z.object({
   type: z.string(),
   count: z.number().min(0),
+  brokenLinks: z.number().min(0).nullable().optional().default(null),
+  brokenHours: z.number().min(0).nullable().optional().default(null),
+  brokenDevlogs: z.number().min(0).nullable().optional().default(null),
   pendingHours: z.number().min(0),
   pendingDevlogs: z.number().min(0),
-  oldestInQueue: z.iso.date(),
+  oldestInQueue: z.catch(z.iso.date().nullable(), null).optional().default(null),
+  oldestUnbrokenInQueue: z.iso.date().nullable().optional().default(null),
 });
 
 export const goiStatsSchema = z.object({
   myUsername: z.string(),
   queueCount: z.number().min(0),
+  brokenLinks: z.number().min(0).nullable().optional().default(null),
+  brokenHours: z.number().min(0).nullable().optional().default(null),
+  brokenDevlogs: z.number().min(0).nullable().optional().default(null),
   pendingHours: z.number().min(0),
   pendingDevlogs: z.number().min(0),
-  oldestInQueue: z.iso.date(),
+  oldestInQueue: z.catch(z.iso.date().nullable(), null).optional().default(null),
+  oldestUnbrokenInQueue: z.iso.date().nullable().optional().default(null),
   categories: z.array(categoryEntrySchema).optional().default([]),
   reviewerLb: z.array(reviewerEntrySchema),
   graph: graphSchema,

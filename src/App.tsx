@@ -821,6 +821,7 @@ const App = (): JSX.Element => {
 
   const [hiddenCats, setHiddenCats] = createSignal<Set<string>>(new Set());
   const [catOverrides, setCatOverrides] = createSignal<Set<string>>(new Set());
+  const [excludeBroken, setExcludeBroken] = createSignal<boolean>(true);
 
   const isCategoryVisible = (type: string): boolean => {
     if (catOverrides().has(type)) return true;
@@ -876,11 +877,105 @@ const App = (): JSX.Element => {
         ? null
         : (statsQuery.data?.data.oldestInQueue ?? null);
     }
-    return cats.reduce<string | null>(
-      (oldest, c) =>
-        oldest === null || c.oldestInQueue < oldest ? c.oldestInQueue : oldest,
-      null,
+    return cats.reduce<string | null>((oldest, c) => {
+      const v = c.oldestInQueue ?? null;
+      if (v === null) return oldest;
+      return oldest === null || v < oldest ? v : oldest;
+    }, null);
+  });
+
+  const effectiveCatUnbroken = (c: CategoryEntry): string | null => {
+    if (c.oldestUnbrokenInQueue != null) return c.oldestUnbrokenInQueue;
+    if (c.count > 0 && c.brokenLinks === 0) return c.oldestInQueue;
+    return null;
+  };
+
+  const filteredOldestUnbrokenInQueue = createMemo<string | null>(() => {
+    const cats = visibleCategories();
+    if (cats.length === 0) {
+      return hasCategoryData()
+        ? null
+        : (statsQuery.data?.data.oldestUnbrokenInQueue ?? null);
+    }
+    return cats.reduce<string | null>((oldest, c) => {
+      const v = effectiveCatUnbroken(c);
+      if (v === null) return oldest;
+      return oldest === null || v < oldest ? v : oldest;
+    }, null);
+  });
+
+  const brokenCheckRan = createMemo(() => {
+    const d = statsQuery.data?.data;
+    return (
+      d?.brokenLinks != null &&
+      d?.brokenHours != null &&
+      d?.brokenDevlogs != null
     );
+  });
+
+  const filteredBrokenLinks = createMemo((): number | null => {
+    if (!brokenCheckRan()) return null;
+    const cats = visibleCategories();
+    if (cats.length === 0) {
+      return hasCategoryData()
+        ? 0
+        : (statsQuery.data?.data.brokenLinks ?? 0);
+    }
+    return cats.reduce((s, c) => s + (c.brokenLinks ?? 0), 0);
+  });
+
+  const filteredBrokenDevlogs = createMemo((): number | null => {
+    if (!brokenCheckRan()) return null;
+    const cats = visibleCategories();
+    if (cats.length === 0) {
+      return hasCategoryData()
+        ? 0
+        : (statsQuery.data?.data.brokenDevlogs ?? 0);
+    }
+    return cats.reduce((s, c) => s + (c.brokenDevlogs ?? 0), 0);
+  });
+
+  const filteredBrokenHours = createMemo((): number | null => {
+    if (!brokenCheckRan()) return null;
+    const cats = visibleCategories();
+    if (cats.length === 0) {
+      return hasCategoryData()
+        ? 0
+        : (statsQuery.data?.data.brokenHours ?? 0);
+    }
+    return cats.reduce((s, c) => s + (c.brokenHours ?? 0), 0);
+  });
+
+  const excludeBrokenActive = (): boolean =>
+    excludeBroken() && brokenCheckRan();
+
+  const displayedPendingReviews = createMemo(() =>
+    Math.max(0, pendingReviews() - (excludeBrokenActive() ? (filteredBrokenLinks() ?? 0) : 0)),
+  );
+
+  const displayedPendingDevlogs = createMemo(() =>
+    Math.max(
+      0,
+      filteredPendingDevlogs() -
+        (excludeBrokenActive() ? (filteredBrokenDevlogs() ?? 0) : 0),
+    ),
+  );
+
+  const displayedPendingHours = createMemo(() =>
+    Math.max(
+      0,
+      filteredPendingHours() -
+        (excludeBrokenActive() ? (filteredBrokenHours() ?? 0) : 0),
+    ),
+  );
+
+  const displayedOldestInQueue = createMemo<string | null>(() => {
+    if (!excludeBrokenActive()) return filteredOldestInQueue();
+    const visibleMin = filteredOldestUnbrokenInQueue();
+    if (visibleMin !== null) return visibleMin;
+    if (displayedPendingReviews() > 0)
+      return statsQuery.data?.data.oldestUnbrokenInQueue ?? null;
+    return null;
   });
 
   const toggleCategory = (type: string): void => {
@@ -940,6 +1035,22 @@ const App = (): JSX.Element => {
     return sortDir() === "desc" ? " \u25BC" : " \u25B2";
   };
 
+  const oldestSubtext = (): string => {
+    const oldest = displayedOldestInQueue();
+    if (oldest) {
+      return `${daysSince(oldest)} days old${excludeBrokenActive() ? " (oldest non-broken)" : ""}`;
+    }
+    if (excludeBrokenActive() && brokenCheckRan()) {
+      if (displayedPendingReviews() === 0) {
+        if ((filteredBrokenLinks() ?? 0) > 0) return "all shown are broken";
+      } else {
+        return "unbroken date unavailable";
+      }
+    }
+    if (hasCategoryData()) return "no categories shown";
+    return "";
+  };
+
   return (
     <div class="app">
       <Show when={isGotg()}>
@@ -987,42 +1098,86 @@ const App = (): JSX.Element => {
       <Show when={statsQuery.data}>
         {(resp) => (
           <>
+            <div class="broken-toggle-bar">
+              <label
+                class="broken-toggle"
+                classList={{ disabled: !brokenCheckRan() }}
+                title={
+                  brokenCheckRan()
+                    ? "Remove projects with broken links from the totals below"
+                    : "Broken link check hasn't run yet"
+                }
+              >
+                <input
+                  type="checkbox"
+                  checked={excludeBroken()}
+                  disabled={!brokenCheckRan()}
+                  onChange={(e) => setExcludeBroken(e.currentTarget.checked)}
+                />
+                <span class="broken-toggle-switch" aria-hidden="true" />
+                <span class="broken-toggle-label">
+                  Remove broken links
+                </span>
+              </label>
+              <Show when={!brokenCheckRan()}>
+                <span class="broken-toggle-note">
+                  Broken link check hasn't run yet
+                </span>
+              </Show>
+              <Show when={brokenCheckRan() && excludeBrokenActive()}>
+                <span class="broken-toggle-note">
+                  Excluding {filteredBrokenLinks() ?? 0} broken reviews,{" "}
+                  {filteredBrokenDevlogs() ?? 0} devlogs,{" "}
+                  {formatRounded(filteredBrokenHours() ?? 0)} hours
+                </span>
+              </Show>
+              <Show when={brokenCheckRan() && !excludeBrokenActive()}>
+                <span class="broken-toggle-note">
+                  Including {filteredBrokenLinks() ?? 0} broken reviews,{" "}
+                  {filteredBrokenDevlogs() ?? 0} devlogs,{" "}
+                  {formatRounded(filteredBrokenHours() ?? 0)} hours
+                </span>
+              </Show>
+            </div>
             <div class="stat-cards">
               <div class="stat-card">
                 <span class="stat-label">Pending Reviews</span>
                 <span class="stat-value">
-                  {formatRounded(pendingReviews())}
+                  {formatRounded(displayedPendingReviews())}
                 </span>
-                <span class="stat-subtext">shown categories only</span>
+                <span class="stat-subtext">
+                  {excludeBrokenActive() ? "excl. broken, " : ""}shown
+                  categories only
+                </span>
               </div>
               <div class="stat-card">
                 <span class="stat-label">Pending Devlogs</span>
                 <span class="stat-value">
-                  {formatRounded(filteredPendingDevlogs())}
+                  {formatRounded(displayedPendingDevlogs())}
                 </span>
-                <span class="stat-subtext">shown categories only</span>
+                <span class="stat-subtext">
+                  {excludeBrokenActive() ? "excl. broken, " : ""}shown
+                  categories only
+                </span>
               </div>
               <div class="stat-card">
                 <span class="stat-label">Pending Hours</span>
                 <span class="stat-value">
-                  {formatRounded(filteredPendingHours())}
+                  {formatRounded(displayedPendingHours())}
                 </span>
-                <span class="stat-subtext">shown categories only</span>
+                <span class="stat-subtext">
+                  {excludeBrokenActive() ? "excl. broken, " : ""}shown
+                  categories only
+                </span>
               </div>
               <div class="stat-card">
                 <span class="stat-label">Oldest In Queue</span>
                 <span class="stat-value">
-                  {filteredOldestInQueue()
-                    ? formatHumanDate(filteredOldestInQueue()!)
+                  {displayedOldestInQueue()
+                    ? formatHumanDate(displayedOldestInQueue()!)
                     : "\u2014"}
                 </span>
-                <span class="stat-subtext">
-                  {filteredOldestInQueue()
-                    ? `${daysSince(filteredOldestInQueue()!)} days old`
-                    : hasCategoryData()
-                      ? "no categories shown"
-                      : ""}
-                </span>
+                <span class="stat-subtext">{oldestSubtext()}</span>
               </div>
               <div class="stat-card">
                 <span class="stat-label">Reviews Today</span>
@@ -1064,7 +1219,8 @@ const App = (): JSX.Element => {
               <div class="tier-card-head">
                 <span class="stat-label">Stardust from pending devlogs</span>
                 <span class="tier-subtext">
-                  {filteredPendingDevlogs()} pending devlogs
+                  {displayedPendingDevlogs()} pending devlogs
+                  {excludeBrokenActive() ? " (excl. broken)" : ""}
                 </span>
               </div>
               <div class="tier-list">
@@ -1074,7 +1230,7 @@ const App = (): JSX.Element => {
                       <span class="tier-range">{tier.label}</span>
                       <span class="tier-rate">{tier.rate} / devlog</span>
                       <span class="tier-earn">
-                        {Math.round(tier.rate * filteredPendingDevlogs())}
+                        {Math.round(tier.rate * displayedPendingDevlogs())}
                       </span>
                     </div>
                   )}

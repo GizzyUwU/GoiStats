@@ -104,6 +104,82 @@ header h1 {
   margin-bottom: 1.5rem;
 }
 
+.broken-toggle-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.broken-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  user-select: none;
+  font-size: 0.78rem;
+  color: var(--text);
+}
+
+.broken-toggle.disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.broken-toggle input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.broken-toggle-switch {
+  width: 34px;
+  height: 19px;
+  border-radius: 999px;
+  background: var(--surface-hover);
+  border: 1px solid var(--border);
+  position: relative;
+  transition: background 0.15s ease;
+  flex-shrink: 0;
+}
+
+.broken-toggle-switch::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: var(--text-dim);
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+
+.broken-toggle input:checked + .broken-toggle-switch {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.broken-toggle input:checked + .broken-toggle-switch::after {
+  transform: translateX(15px);
+  background: var(--bg);
+}
+
+.broken-toggle input:disabled + .broken-toggle-switch {
+  opacity: 0.5;
+}
+
+.broken-toggle-label {
+  font-weight: 600;
+}
+
+.broken-toggle-note {
+  font-size: 0.7rem;
+  color: var(--text-dim);
+}
+
 .stat-card {
   display: flex;
   flex-direction: column;
