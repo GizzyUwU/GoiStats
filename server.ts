@@ -101,7 +101,7 @@ const buildOgDescription = (stats: GoiStats): string => {
   );
   const projectWord = projects === 1 ? "project" : "projects";
   const devlogWord = devlogs === 1 ? "devlog" : "devlogs";
-  return `${projects} ${projectWord} (${devlogs} ${devlogWord}) left to review! Oooo! Finally stats on the Guardians of Integrity team!`;
+  return `GOI Stats yum! ${projects} ${projectWord} (${devlogs} ${devlogWord}) left to review!`;
 };
 
 const serveIndexWithMeta = async (host: string | null): Promise<Response> => {
