@@ -803,6 +803,8 @@ const App = (): JSX.Element => {
   const [now, setNow] = createSignal(Date.now());
   const [isMobile, setIsMobile] = createSignal(false);
   const isGotg = (): boolean => window.location.hostname === "gotg.gizzy.gay";
+  const isHwgoi = (): boolean =>
+    window.location.hostname === "hwgoi.gizzy.gay";
 
   onMount(() => {
     const check = () => setIsMobile(window.innerWidth < 600);
@@ -982,7 +984,8 @@ const App = (): JSX.Element => {
     const devlogs = displayedPendingDevlogs();
     const projectWord = projects === 1 ? "project" : "projects";
     const devlogWord = devlogs === 1 ? "devlog" : "devlogs";
-    return `GOI Stats yum! ${projects} ${projectWord} (${devlogs} ${devlogWord}) left to review!`;
+    const prefix = isHwgoiHost() ? "GOHI" : "GOI";
+    return `${prefix} Stats yum! ${projects} ${projectWord} (${devlogs} ${devlogWord}) left to review!`;
   });
 
   const displayedOldestInQueue = createMemo<string | null>(() => {
@@ -1093,6 +1096,30 @@ const App = (): JSX.Element => {
           />
         </>
       </Show>
+      <Show when={isHwgoi()}>
+        <>
+          <Title>Guardians of Hardware Integrity</Title>
+          <Meta property="og:title" content="GOHIStats" />
+          <Meta
+            property="og:description"
+            content="Oooo! Finally stats on the Guardians of Hardware Integrity team! Guardians of the Galaxy's Hardware (GOHI) hardware-only stats!"
+          />
+          <Meta property="og:url" content="https://hwgoi.gizzy.gay" />
+          <Meta property="og:image" content="https://hwgoi.gizzy.gay/oooo.jpg" />
+          <Meta property="og:type" content="website" />
+          <Meta property="og:site_name" content="GOHIStats" />
+          <Meta name="twitter:card" content="summary_large_image" />
+          <Meta name="twitter:title" content="GOHIStats" />
+          <Meta
+            name="twitter:description"
+            content="Oooo! Finally stats on the Guardians of Hardware Integrity team! Guardians of the Galaxy's Hardware (GOHI) hardware-only stats!"
+          />
+          <Meta
+            name="twitter:image"
+            content="https://hwgoi.gizzy.gay/oooo.jpg"
+          />
+        </>
+      </Show>
       <Show when={!isGotg() && statsQuery.data}>
         <Meta property="og:description" content={ogDescription()} />
         <Meta name="twitter:description" content={ogDescription()} />
@@ -1100,7 +1127,11 @@ const App = (): JSX.Element => {
       </Show>
       <header>
         <h1>
-          {isGotg() ? "Guardians Of The Galaxy" : "Guardians of Integrity"}
+          {isHwgoi()
+            ? "Guardians of Hardware Integrity"
+            : isGotg()
+              ? "Guardians Of The Galaxy"
+              : "Guardians of Integrity"}
         </h1>
         <Show when={statsQuery.data}>
           {(resp) => (

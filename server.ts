@@ -59,6 +59,11 @@ const refreshCache = async (): Promise<CacheEntry> => {
 
 const DIST = join(import.meta.dir, "dist");
 
+const HWGOI_TITLE = "Guardians of Hardware Integrity";
+const HWGOI_SHORT = "GOHIStats";
+const HWGOI_FALLBACK_DESCRIPTION =
+  "Oooo! Finally stats on the Guardians of Hardware Integrity team! Guardians of the Galaxy's Hardware (GOHI) hardware-only stats!";
+
 const escapeHtmlAttr = (s: string): string =>
   s
     .replace(/&/g, "&amp;")
@@ -109,7 +114,8 @@ const buildOgDescription = (stats: GoiStats, hwgoi = false): string => {
   );
   const projectWord = projects === 1 ? "project" : "projects";
   const devlogWord = devlogs === 1 ? "devlog" : "devlogs";
-  return `GOI Stats yum! ${projects} ${projectWord} (${devlogs} ${devlogWord}) left to review!`;
+  const prefix = hwgoi ? "GOHI" : "GOI";
+  return `${prefix} Stats yum! ${projects} ${projectWord} (${devlogs} ${devlogWord}) left to review!`;
 };
 
 const serveIndexWithMeta = async (host: string | null): Promise<Response> => {
@@ -126,7 +132,9 @@ const serveIndexWithMeta = async (host: string | null): Promise<Response> => {
   const imageUrl = `${siteUrl}/oooo.jpg`;
   const description = stats
     ? buildOgDescription(stats, isHwgoi)
-    : "Oooo! Finally stats on the Guardians of Integrity team!";
+    : isHwgoi
+      ? HWGOI_FALLBACK_DESCRIPTION
+      : "Oooo! Finally stats on the Guardians of Integrity team!";
   const escaped = escapeHtmlAttr(description);
 
   const withReplaced = (html: string, regex: RegExp, replacement: string) =>
@@ -151,6 +159,27 @@ const serveIndexWithMeta = async (host: string | null): Promise<Response> => {
     `<meta name="description" content="${escaped}" />`,
   );
   // Keep url/image in sync for gotg vs goi hosts (mirrors App.tsx override).
+  if (isHwgoi) {
+    const escapedTitle = escapeHtmlAttr(HWGOI_TITLE);
+    const escapedShort = escapeHtmlAttr(HWGOI_SHORT);
+    html = html.replace(
+      /<title>[^<]*<\/title>/,
+      `<title>${escapedTitle}</title>`,
+    );
+    html = html
+      .replace(
+        /<meta\s+property="og:title"\s+content="[^"]*"\s*\/?>/,
+        `<meta property="og:title" content="${escapedShort}" />`,
+      )
+      .replace(
+        /<meta\s+property="og:site_name"\s+content="[^"]*"\s*\/?>/,
+        `<meta property="og:site_name" content="${escapedShort}" />`,
+      )
+      .replace(
+        /<meta\s+name="twitter:title"\s+content="[^"]*"\s*\/?>/,
+        `<meta name="twitter:title" content="${escapedShort}" />`,
+      );
+  }
   html = html
     .replace(
       /<meta\s+property="og:url"\s+content="[^"]*"\s*\/?>/,
