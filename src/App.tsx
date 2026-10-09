@@ -40,8 +40,14 @@ const PALETTE = [
 ] as const;
 
 const DEFAULT_HIDDEN = ["hardware"];
+const isHwgoiHost = (): boolean =>
+  typeof window !== "undefined" &&
+  window.location.hostname === "hwgoi.gizzy.gay";
 const isDefaultHidden = (type: string): boolean =>
-  DEFAULT_HIDDEN.some((p) => type.toLowerCase().includes(p));
+  // hwgoi keeps hardware only, hiding everything else.
+  isHwgoiHost()
+    ? !type.toLowerCase().includes("hardware")
+    : DEFAULT_HIDDEN.some((p) => type.toLowerCase().includes(p));
 
 const parseGraphDate = (str: string): Date | null => {
   const iso = str.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
@@ -969,6 +975,16 @@ const App = (): JSX.Element => {
     ),
   );
 
+  // Mirrors server.ts buildOgDescription so crawlers (server HTML) and the
+  // live page agree. Reactive: recomputes on every stats refresh.
+  const ogDescription = createMemo(() => {
+    const projects = displayedPendingReviews();
+    const devlogs = displayedPendingDevlogs();
+    const projectWord = projects === 1 ? "project" : "projects";
+    const devlogWord = devlogs === 1 ? "devlog" : "devlogs";
+    return `GOI Stats yum! ${projects} ${projectWord} (${devlogs} ${devlogWord}) left to review!`;
+  });
+
   const displayedOldestInQueue = createMemo<string | null>(() => {
     if (!excludeBrokenActive()) return filteredOldestInQueue();
     const visibleMin = filteredOldestUnbrokenInQueue();
@@ -1076,6 +1092,11 @@ const App = (): JSX.Element => {
             content="https://gotg.gizzy.gay/oooo.jpg"
           />
         </>
+      </Show>
+      <Show when={!isGotg() && statsQuery.data}>
+        <Meta property="og:description" content={ogDescription()} />
+        <Meta name="twitter:description" content={ogDescription()} />
+        <Meta name="description" content={ogDescription()} />
       </Show>
       <header>
         <h1>

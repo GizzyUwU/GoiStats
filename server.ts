@@ -84,12 +84,20 @@ const getStatsForMeta = async (): Promise<GoiStats | null> => {
   }
 };
 
-const buildOgDescription = (stats: GoiStats): string => {
-  const hiddenCount = (stats.categories ?? [])
-    .filter((c) => c.type.toLowerCase().includes("hardware"))
+const buildOgDescription = (stats: GoiStats, hwgoi = false): string => {
+  const cats = (stats.categories ?? []).filter(
+    (c) => c.type.toLowerCase() !== "all types",
+  );
+  // Default site hides hardware; hwgoi hides everything except hardware.
+  const isHidden = (type: string) =>
+    hwgoi
+      ? !type.toLowerCase().includes("hardware")
+      : type.toLowerCase().includes("hardware");
+  const hiddenCount = cats
+    .filter((c) => isHidden(c.type))
     .reduce((s, c) => s + c.count, 0);
-  const hiddenDevlogs = (stats.categories ?? [])
-    .filter((c) => c.type.toLowerCase().includes("hardware"))
+  const hiddenDevlogs = cats
+    .filter((c) => isHidden(c.type))
     .reduce((s, c) => s + c.pendingDevlogs, 0);
   const projects = Math.max(
     0,
@@ -109,10 +117,15 @@ const serveIndexWithMeta = async (host: string | null): Promise<Response> => {
   const stats = await getStatsForMeta();
 
   const isGotg = host?.split(":")[0] === "gotg.gizzy.gay";
-  const siteUrl = isGotg ? "https://gotg.gizzy.gay" : "https://goi.gizzy.gay";
+  const isHwgoi = host?.split(":")[0] === "hwgoi.gizzy.gay";
+  const siteUrl = isGotg
+    ? "https://gotg.gizzy.gay"
+    : isHwgoi
+      ? "https://hwgoi.gizzy.gay"
+      : "https://goi.gizzy.gay";
   const imageUrl = `${siteUrl}/oooo.jpg`;
   const description = stats
-    ? buildOgDescription(stats)
+    ? buildOgDescription(stats, isHwgoi)
     : "Oooo! Finally stats on the Guardians of Integrity team!";
   const escaped = escapeHtmlAttr(description);
 
