@@ -59,10 +59,10 @@ const refreshCache = async (): Promise<CacheEntry> => {
 
 const DIST = join(import.meta.dir, "dist");
 
-const HWGOI_TITLE = "Guardians of Hardware Integrity";
-const HWGOI_SHORT = "GOHIStats";
-const HWGOI_FALLBACK_DESCRIPTION =
-  "Oooo! Finally stats on the Guardians of Hardware Integrity team! Guardians of the Galaxy's Hardware (GOHI) hardware-only stats!";
+const SHART_TITLE = "S.H.A.R.T Stardance Hardware Awesome Review Team";
+const SHART_SHORT = "ShartStats";
+const SHART_FALLBACK_DESCRIPTION =
+  "Oooo! Finally stats on the S.H.A.R.T Stardance Hardware Awesome Review Team! Stardance Hardware Awesome Review Team (S.H.A.R.T) hardware-only stats!";
 
 const escapeHtmlAttr = (s: string): string =>
   s
@@ -89,13 +89,13 @@ const getStatsForMeta = async (): Promise<GoiStats | null> => {
   }
 };
 
-const buildOgDescription = (stats: GoiStats, hwgoi = false): string => {
+const buildOgDescription = (stats: GoiStats, shart = false): string => {
   const cats = (stats.categories ?? []).filter(
     (c) => c.type.toLowerCase() !== "all types",
   );
-  // Default site hides hardware; hwgoi hides everything except hardware.
+  // Default site hides hardware; shart hides everything except hardware.
   const isHidden = (type: string) =>
-    hwgoi
+    shart
       ? !type.toLowerCase().includes("hardware")
       : type.toLowerCase().includes("hardware");
   const hiddenCount = cats
@@ -114,7 +114,7 @@ const buildOgDescription = (stats: GoiStats, hwgoi = false): string => {
   );
   const projectWord = projects === 1 ? "project" : "projects";
   const devlogWord = devlogs === 1 ? "devlog" : "devlogs";
-  const prefix = hwgoi ? "GOHI" : "GOI";
+  const prefix = shart ? "S.H.A.R.T" : "GOI";
   return `${prefix} Stats yum! ${projects} ${projectWord} (${devlogs} ${devlogWord}) left to review!`;
 };
 
@@ -123,17 +123,18 @@ const serveIndexWithMeta = async (host: string | null): Promise<Response> => {
   const stats = await getStatsForMeta();
 
   const isGotg = host?.split(":")[0] === "gotg.gizzy.gay";
-  const isHwgoi = host?.split(":")[0] === "hwgoi.gizzy.gay";
+  const hostname = host?.split(":")[0];
+  const isShart = hostname === "shart.gizzy.gay";
   const siteUrl = isGotg
     ? "https://gotg.gizzy.gay"
-    : isHwgoi
-      ? "https://hwgoi.gizzy.gay"
+    : isShart
+      ? "https://shart.gizzy.gay"
       : "https://goi.gizzy.gay";
   const imageUrl = `${siteUrl}/oooo.jpg`;
   const description = stats
-    ? buildOgDescription(stats, isHwgoi)
-    : isHwgoi
-      ? HWGOI_FALLBACK_DESCRIPTION
+    ? buildOgDescription(stats, isShart)
+    : isShart
+      ? SHART_FALLBACK_DESCRIPTION
       : "Oooo! Finally stats on the Guardians of Integrity team!";
   const escaped = escapeHtmlAttr(description);
 
@@ -159,9 +160,9 @@ const serveIndexWithMeta = async (host: string | null): Promise<Response> => {
     `<meta name="description" content="${escaped}" />`,
   );
   // Keep url/image in sync for gotg vs goi hosts (mirrors App.tsx override).
-  if (isHwgoi) {
-    const escapedTitle = escapeHtmlAttr(HWGOI_TITLE);
-    const escapedShort = escapeHtmlAttr(HWGOI_SHORT);
+  if (isShart) {
+    const escapedTitle = escapeHtmlAttr(SHART_TITLE);
+    const escapedShort = escapeHtmlAttr(SHART_SHORT);
     html = html.replace(
       /<title>[^<]*<\/title>/,
       `<title>${escapedTitle}</title>`,

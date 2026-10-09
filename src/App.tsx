@@ -40,12 +40,12 @@ const PALETTE = [
 ] as const;
 
 const DEFAULT_HIDDEN = ["hardware"];
-const isHwgoiHost = (): boolean =>
+const isShartHost = (): boolean =>
   typeof window !== "undefined" &&
-  window.location.hostname === "hwgoi.gizzy.gay";
+  window.location.hostname === "shart.gizzy.gay";
 const isDefaultHidden = (type: string): boolean =>
-  // hwgoi keeps hardware only, hiding everything else.
-  isHwgoiHost()
+  // shart keeps hardware only, hiding everything else.
+  isShartHost()
     ? !type.toLowerCase().includes("hardware")
     : DEFAULT_HIDDEN.some((p) => type.toLowerCase().includes(p));
 
@@ -803,8 +803,8 @@ const App = (): JSX.Element => {
   const [now, setNow] = createSignal(Date.now());
   const [isMobile, setIsMobile] = createSignal(false);
   const isGotg = (): boolean => window.location.hostname === "gotg.gizzy.gay";
-  const isHwgoi = (): boolean =>
-    window.location.hostname === "hwgoi.gizzy.gay";
+  const isShart = (): boolean =>
+    window.location.hostname === "shart.gizzy.gay";
 
   onMount(() => {
     const check = () => setIsMobile(window.innerWidth < 600);
@@ -984,7 +984,7 @@ const App = (): JSX.Element => {
     const devlogs = displayedPendingDevlogs();
     const projectWord = projects === 1 ? "project" : "projects";
     const devlogWord = devlogs === 1 ? "devlog" : "devlogs";
-    const prefix = isHwgoiHost() ? "GOHI" : "GOI";
+    const prefix = isShartHost() ? "S.H.A.R.T" : "GOI";
     return `${prefix} Stats yum! ${projects} ${projectWord} (${devlogs} ${devlogWord}) left to review!`;
   });
 
@@ -1096,27 +1096,27 @@ const App = (): JSX.Element => {
           />
         </>
       </Show>
-      <Show when={isHwgoi()}>
+      <Show when={isShart()}>
         <>
-          <Title>Guardians of Hardware Integrity</Title>
-          <Meta property="og:title" content="GOHIStats" />
+          <Title>S.H.A.R.T Stardance Hardware Awesome Review Team</Title>
+          <Meta property="og:title" content="ShartStats" />
           <Meta
             property="og:description"
-            content="Oooo! Finally stats on the Guardians of Hardware Integrity team! Guardians of the Galaxy's Hardware (GOHI) hardware-only stats!"
+            content="Oooo! Finally stats on the S.H.A.R.T Stardance Hardware Awesome Review Team! Stardance Hardware Awesome Review Team (S.H.A.R.T) hardware-only stats!"
           />
-          <Meta property="og:url" content="https://hwgoi.gizzy.gay" />
-          <Meta property="og:image" content="https://hwgoi.gizzy.gay/oooo.jpg" />
+          <Meta property="og:url" content="https://shart.gizzy.gay" />
+          <Meta property="og:image" content="https://shart.gizzy.gay/oooo.jpg" />
           <Meta property="og:type" content="website" />
-          <Meta property="og:site_name" content="GOHIStats" />
+          <Meta property="og:site_name" content="ShartStats" />
           <Meta name="twitter:card" content="summary_large_image" />
-          <Meta name="twitter:title" content="GOHIStats" />
+          <Meta name="twitter:title" content="ShartStats" />
           <Meta
             name="twitter:description"
-            content="Oooo! Finally stats on the Guardians of Hardware Integrity team! Guardians of the Galaxy's Hardware (GOHI) hardware-only stats!"
+            content="Oooo! Finally stats on the S.H.A.R.T Stardance Hardware Awesome Review Team! Stardance Hardware Awesome Review Team (S.H.A.R.T) hardware-only stats!"
           />
           <Meta
             name="twitter:image"
-            content="https://hwgoi.gizzy.gay/oooo.jpg"
+            content="https://shart.gizzy.gay/oooo.jpg"
           />
         </>
       </Show>
@@ -1127,8 +1127,8 @@ const App = (): JSX.Element => {
       </Show>
       <header>
         <h1>
-          {isHwgoi()
-            ? "Guardians of Hardware Integrity"
+          {isShart()
+            ? "S.H.A.R.T Stardance Hardware Awesome Review Team"
             : isGotg()
               ? "Guardians Of The Galaxy"
               : "Guardians of Integrity"}
