@@ -886,7 +886,7 @@ const App = (): JSX.Element => {
 
   const effectiveCatUnbroken = (c: CategoryEntry): string | null => {
     if (c.oldestUnbrokenInQueue != null) return c.oldestUnbrokenInQueue;
-    if (c.count > 0 && c.brokenLinks === 0) return c.oldestInQueue;
+    if (c.count > 0 && (c.brokenLinks ?? 0) === 0) return c.oldestInQueue;
     return null;
   };
 
