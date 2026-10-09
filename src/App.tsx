@@ -802,6 +802,7 @@ const App = (): JSX.Element => {
   const [sortDir, setSortDir] = createSignal<SortDirection>("desc");
   const [now, setNow] = createSignal(Date.now());
   const [isMobile, setIsMobile] = createSignal(false);
+  const [isStinky] = createSignal(Math.random() < 0.1);
   const isGotg = (): boolean => window.location.hostname === "gotg.gizzy.gay";
   const isShart = (): boolean =>
     window.location.hostname === "shart.gizzy.gay";
@@ -1126,13 +1127,21 @@ const App = (): JSX.Element => {
         <Meta name="description" content={ogDescription()} />
       </Show>
       <header>
-        <h1>
-          {isShart()
-            ? "S.H.A.R.T Stardance Hardware Awesome Review Team"
-            : isGotg()
-              ? "Guardians Of The Galaxy"
-              : "Guardians of Integrity"}
-        </h1>
+        <div class="header-title">
+          <h1>
+            {isShart()
+              ? "S.H.A.R.T"
+              : isGotg()
+                ? "Guardians Of The Galaxy"
+                : "Guardians of Integrity"}
+          </h1>
+          <Show when={isShart()}>
+            <div class="header-sub">
+              Stardance Hardware {isStinky() ? "Stinky" : "Awesome"} Review
+              Team
+            </div>
+          </Show>
+        </div>
         <Show when={statsQuery.data}>
           {(resp) => (
             <div class="header-meta">
