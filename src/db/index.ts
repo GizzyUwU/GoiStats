@@ -15,9 +15,25 @@ export const db = DATABASE_URL
 
 const MIGRATIONS_FOLDER = new URL("../../drizzle/", import.meta.url).pathname;
 
-export const runMigrations = async (): Promise<void> => {
-  if (!db) return;
-  await migrate(db, { migrationsFolder: MIGRATIONS_FOLDER });
+export const runMigrations = async (retries = 10): Promise<void> => {
+  if (!db) {
+    console.warn("[db] DATABASE_URL not set, skipping migrations");
+    return;
+  }
+
+  for (let attempt = 1; ; attempt++) {
+    try {
+      await migrate(db, { migrationsFolder: MIGRATIONS_FOLDER });
+      return;
+    } catch (err) {
+      if (attempt >= retries) throw err;
+      console.error(
+        `[db] migration attempt ${attempt}/${retries} failed (folder: ${MIGRATIONS_FOLDER}), retrying in 3s:`,
+        err,
+      );
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+    }
+  }
 };
 
 type EntryValues = {

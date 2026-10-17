@@ -213,6 +213,16 @@ const serveIndexWithMeta = async (host: string | null): Promise<Response> => {
   });
 };
 
+// Migrations must finish before we accept traffic, and a failure has to be
+// fatal so Docker restarts us (instead of serving 500s against an empty DB).
+try {
+  await runMigrations();
+  console.log("Database migrations up to date");
+} catch (err) {
+  console.error("Fatal: database migrations failed:", err);
+  process.exit(1);
+}
+
 const app = new Elysia()
   .get("/health", () => ({ ok: true }))
   .get("/api/goistats", async ({ set }) => {
@@ -319,13 +329,6 @@ const app = new Elysia()
   .listen(process.env.PORT ?? 3001);
 
 console.log(`Server running on http://localhost:${app.server?.port}`);
-
-runMigrations()
-  .then(() => {
-    console.log("Database migrations up to date");
-    return poll();
-  })
-  .catch((err) => console.error("Database migration failed:", err));
 
 // Snapshots must not depend on traffic, so poll upstream on a timer. Every tick
 // we also check whether the Wednesday 4pm ET reset has passed; when it has we
