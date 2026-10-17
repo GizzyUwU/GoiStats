@@ -11,10 +11,10 @@ import {
   timestamp,
 } from "drizzle-orm/pg-core";
 
-export const lbWeeks = pgTable(
-  "lb_weeks",
+export const lbDays = pgTable(
+  "lb_days",
   {
-    weekKey: text("week_key").primaryKey(),
+    dayKey: text("day_key").primaryKey(),
     startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
     endsAt: timestamp("ends_at", { withTimezone: true }).notNull(),
     finalizedAt: timestamp("finalized_at", { withTimezone: true }),
@@ -28,9 +28,9 @@ export const lbWeeks = pgTable(
 export const lbEntries = pgTable(
   "lb_entries",
   {
-    weekKey: text("week_key")
+    dayKey: text("day_key")
       .notNull()
-      .references(() => lbWeeks.weekKey, { onDelete: "cascade" }),
+      .references(() => lbDays.dayKey, { onDelete: "cascade" }),
     reviewer: text("reviewer").notNull(),
     rank: integer("rank").notNull(),
     devlogsLastThreeDays: doublePrecision("devlogs_last_three_days").notNull(),
@@ -51,16 +51,16 @@ export const lbEntries = pgTable(
       .defaultNow(),
     changeCount: integer("change_count").notNull().default(0),
   },
-  (t) => [primaryKey({ name: "lb_entries_pkey", columns: [t.weekKey, t.reviewer] })],
+  (t) => [primaryKey({ name: "lb_entries_pkey", columns: [t.dayKey, t.reviewer] })],
 );
 
 export const lbChanges = pgTable(
   "lb_changes",
   {
     id: serial("id").primaryKey(),
-    weekKey: text("week_key")
+    dayKey: text("day_key")
       .notNull()
-      .references(() => lbWeeks.weekKey, { onDelete: "cascade" }),
+      .references(() => lbDays.dayKey, { onDelete: "cascade" }),
     reviewer: text("reviewer").notNull(),
     rank: integer("rank").notNull(),
     devlogsLastThreeDays: doublePrecision("devlogs_last_three_days").notNull(),
@@ -78,28 +78,28 @@ export const lbChanges = pgTable(
       .notNull()
       .defaultNow(),
   },
-  (t) => [index("lb_changes_lookup_idx").on(t.weekKey, t.reviewer, t.capturedAt)],
+  (t) => [index("lb_changes_lookup_idx").on(t.dayKey, t.reviewer, t.capturedAt)],
 );
 
-export const lbWeeksRelations = relations(lbWeeks, ({ many }) => ({
+export const lbDaysRelations = relations(lbDays, ({ many }) => ({
   entries: many(lbEntries),
   changes: many(lbChanges),
 }));
 
 export const lbEntriesRelations = relations(lbEntries, ({ one }) => ({
-  week: one(lbWeeks, {
-    fields: [lbEntries.weekKey],
-    references: [lbWeeks.weekKey],
+  day: one(lbDays, {
+    fields: [lbEntries.dayKey],
+    references: [lbDays.dayKey],
   }),
 }));
 
 export const lbChangesRelations = relations(lbChanges, ({ one }) => ({
-  week: one(lbWeeks, {
-    fields: [lbChanges.weekKey],
-    references: [lbWeeks.weekKey],
+  day: one(lbDays, {
+    fields: [lbChanges.dayKey],
+    references: [lbDays.dayKey],
   }),
 }));
 
-export type LbWeek = typeof lbWeeks.$inferSelect;
+export type LbDay = typeof lbDays.$inferSelect;
 export type LbEntry = typeof lbEntries.$inferSelect;
 export type LbChange = typeof lbChanges.$inferSelect;

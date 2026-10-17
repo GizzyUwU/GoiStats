@@ -4,8 +4,8 @@ import { migrate } from "drizzle-orm/node-postgres/migrator";
 import { Pool } from "pg";
 import type { ReviewerEntry } from "../types.js";
 import * as schema from "./schema.js";
-import { lbChanges, lbEntries, lbWeeks } from "./schema.js";
-import { currentWeekWindow } from "./week.js";
+import { lbChanges, lbEntries, lbDays } from "./schema.js";
+import { currentDayWindow } from "./day.js";
 
 const DATABASE_URL = process.env.DATABASE_URL;
 
@@ -66,38 +66,33 @@ const toValues = (entry: ReviewerEntry, rank: number): EntryValues => ({
   stardustEarnt: entry.stardustEarnt,
 });
 
-/**
- * Upserts the current week's leaderboard. Only writes when a reviewer's
- * numbers actually change, appending a row to lb_changes so the full
- * intra-week timeline can be replayed later.
- */
 export const recordLeaderboard = async (
   leaderboard: ReviewerEntry[],
 ): Promise<void> => {
   if (!db) return;
 
   const now = new Date();
-  const week = currentWeekWindow(now);
+  const day = currentDayWindow(now);
 
   await db.transaction(async (tx) => {
     await tx
-      .insert(lbWeeks)
+      .insert(lbDays)
       .values({
-        weekKey: week.weekKey,
-        startsAt: week.startsAt,
-        endsAt: week.endsAt,
+        dayKey: day.dayKey,
+        startsAt: day.startsAt,
+        endsAt: day.endsAt,
       })
-      .onConflictDoNothing({ target: lbWeeks.weekKey });
+      .onConflictDoNothing({ target: lbDays.dayKey });
 
     await tx
-      .update(lbWeeks)
+      .update(lbDays)
       .set({ finalizedAt: now })
-      .where(and(isNull(lbWeeks.finalizedAt), lte(lbWeeks.endsAt, now)));
+      .where(and(isNull(lbDays.finalizedAt), lte(lbDays.endsAt, now)));
 
     const existing = await tx
       .select()
       .from(lbEntries)
-      .where(eq(lbEntries.weekKey, week.weekKey));
+      .where(eq(lbEntries.dayKey, day.dayKey));
     const byReviewer = new Map(existing.map((row) => [row.reviewer, row]));
 
     for (const [i, entry] of leaderboard.entries()) {
@@ -106,7 +101,7 @@ export const recordLeaderboard = async (
 
       if (!prev) {
         await tx.insert(lbEntries).values({
-          weekKey: week.weekKey,
+          dayKey: day.dayKey,
           reviewer: entry.reviewer,
           ...values,
           firstSeenAt: now,
@@ -114,7 +109,7 @@ export const recordLeaderboard = async (
           changeCount: 0,
         });
         await tx.insert(lbChanges).values({
-          weekKey: week.weekKey,
+          dayKey: day.dayKey,
           reviewer: entry.reviewer,
           ...values,
           changedKeys: [],
@@ -133,13 +128,13 @@ export const recordLeaderboard = async (
         .set({ ...values, updatedAt: now, changeCount: prev.changeCount + 1 })
         .where(
           and(
-            eq(lbEntries.weekKey, week.weekKey),
+            eq(lbEntries.dayKey, day.dayKey),
             eq(lbEntries.reviewer, entry.reviewer),
           ),
         );
 
       await tx.insert(lbChanges).values({
-        weekKey: week.weekKey,
+        dayKey: day.dayKey,
         reviewer: entry.reviewer,
         ...values,
         changedKeys,

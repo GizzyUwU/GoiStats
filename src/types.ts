@@ -1,7 +1,7 @@
 export type { ReviewerEntry, GraphReviewer, GraphDateEntry, Graph, PersonalStats, GoiStats, CategoryEntry } from "./schema.js";
 
 export type LbHistoryEntry = {
-  weekKey: string;
+  dayKey: string;
   reviewer: string;
   rank: number;
   devlogsLastThreeDays: number;
@@ -15,8 +15,8 @@ export type LbHistoryEntry = {
   changeCount: number;
 };
 
-export type LbHistoryWeek = {
-  weekKey: string;
+export type LbHistoryDay = {
+  dayKey: string;
   startsAt: string;
   endsAt: string;
   finalizedAt: string | null;
@@ -24,5 +24,5 @@ export type LbHistoryWeek = {
 };
 
 export type LbHistoryResponse = {
-  weeks: LbHistoryWeek[];
+  days: LbHistoryDay[];
 };

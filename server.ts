@@ -4,8 +4,8 @@ import { join } from "node:path";
 import type { GoiStats } from "./src/types.js";
 import { goiStatsSchema } from "./src/schema.js";
 import { db, recordLeaderboard, runMigrations } from "./src/db/index.js";
-import { lbChanges, lbWeeks } from "./src/db/schema.js";
-import { currentWeekWindow } from "./src/db/week.js";
+import { lbChanges, lbDays } from "./src/db/schema.js";
+import { currentDayWindow } from "./src/db/day.js";
 
 const STARDANCE_COOKIE = process.env.STARDANCE_COOKIE;
 const HCES_BEARER_TOKEN = process.env.HCES_BEARER_TOKEN;
@@ -103,7 +103,6 @@ const buildOgDescription = (stats: GoiStats, shart = false): string => {
   const cats = (stats.categories ?? []).filter(
     (c) => c.type.toLowerCase() !== "all types",
   );
-  // Default site hides hardware; shart hides everything except hardware.
   const isHidden = (type: string) =>
     shart
       ? !type.toLowerCase().includes("hardware")
@@ -169,7 +168,6 @@ const serveIndexWithMeta = async (host: string | null): Promise<Response> => {
     /<meta\s+name="description"\s+content="[^"]*"\s*\/?>/,
     `<meta name="description" content="${escaped}" />`,
   );
-  // Keep url/image in sync for gotg vs goi hosts (mirrors App.tsx override).
   if (isShart) {
     const escapedTitle = escapeHtmlAttr(SHART_TITLE);
     const escapedShort = escapeHtmlAttr(SHART_SHORT);
@@ -213,8 +211,6 @@ const serveIndexWithMeta = async (host: string | null): Promise<Response> => {
   });
 };
 
-// Migrations must finish before we accept traffic, and a failure has to be
-// fatal so Docker restarts us (instead of serving 500s against an empty DB).
 try {
   await runMigrations();
   console.log("Database migrations up to date");
@@ -257,19 +253,19 @@ const app = new Elysia()
       return { error: "DATABASE_URL is not configured" };
     }
 
-    const weeks = await db.query.lbWeeks.findMany({
+    const days = await db.query.lbDays.findMany({
       with: { entries: true },
-      orderBy: (w, { desc: d }) => [d(w.startsAt)],
-      limit: 52,
+      orderBy: (d, { desc: desc }) => [desc(d.startsAt)],
+      limit: 90,
     });
 
     return {
-      weeks: weeks.map((w) => ({
-        weekKey: w.weekKey,
-        startsAt: w.startsAt.toISOString(),
-        endsAt: w.endsAt.toISOString(),
-        finalizedAt: w.finalizedAt?.toISOString() ?? null,
-        entries: [...w.entries].sort((a, b) => a.rank - b.rank),
+      days: days.map((d) => ({
+        dayKey: d.dayKey,
+        startsAt: d.startsAt.toISOString(),
+        endsAt: d.endsAt.toISOString(),
+        finalizedAt: d.finalizedAt?.toISOString() ?? null,
+        entries: [...d.entries].sort((a, b) => a.rank - b.rank),
       })),
     };
   })
@@ -279,31 +275,31 @@ const app = new Elysia()
       return { error: "DATABASE_URL is not configured" };
     }
 
-    let weekKey: string | null = query.week ?? null;
+    let dayKey: string | null = query.day ?? null;
 
-    if (weekKey) {
-      const week = await db.query.lbWeeks.findFirst({
-        where: eq(lbWeeks.weekKey, weekKey),
+    if (dayKey) {
+      const day = await db.query.lbDays.findFirst({
+        where: eq(lbDays.dayKey, dayKey),
       });
-      if (!week) {
+      if (!day) {
         set.status = 404;
-        return { error: `No leaderboard week recorded for ${weekKey}` };
+        return { error: `No leaderboard day recorded for ${dayKey}` };
       }
     } else {
-      const current = await db.query.lbWeeks.findFirst({
-        orderBy: (w, { desc: d }) => [d(w.startsAt)],
+      const current = await db.query.lbDays.findFirst({
+        orderBy: (d, { desc: desc }) => [desc(d.startsAt)],
       });
-      weekKey = current?.weekKey ?? null;
-      if (!weekKey) return { weekKey: null, changes: [] };
+      dayKey = current?.dayKey ?? null;
+      if (!dayKey) return { dayKey: null, changes: [] };
     }
 
     const changes = await db
       .select()
       .from(lbChanges)
-      .where(eq(lbChanges.weekKey, weekKey))
+      .where(eq(lbChanges.dayKey, dayKey))
       .orderBy(lbChanges.capturedAt);
 
-    return { weekKey, changes };
+    return { dayKey, changes };
   })
   .onError(({ code, error, set }) => {
     console.error(`[goistats] ${code}:`, error);
@@ -330,19 +326,15 @@ const app = new Elysia()
 
 console.log(`Server running on http://localhost:${app.server?.port}`);
 
-// Snapshots must not depend on traffic, so poll upstream on a timer. Every tick
-// we also check whether the Wednesday 4pm ET reset has passed; when it has we
-// force a fresh fetch so the new (zeroed) week is captured immediately and the
-// previous week gets finalized.
-let lastWeekKey = currentWeekWindow().weekKey;
+let lastDayKey = currentDayWindow().dayKey;
 
 const poll = async (): Promise<void> => {
-  const week = currentWeekWindow();
-  if (week.weekKey !== lastWeekKey) {
+  const day = currentDayWindow();
+  if (day.dayKey !== lastDayKey) {
     console.log(
-      `[goistats] leaderboard week rolled over: ${lastWeekKey} -> ${week.weekKey}`,
+      `[goistats] leaderboard day rolled over: ${lastDayKey} -> ${day.dayKey}`,
     );
-    lastWeekKey = week.weekKey;
+    lastDayKey = day.dayKey;
     if (cache) cache.expiresAt = 0;
   }
 
@@ -350,7 +342,7 @@ const poll = async (): Promise<void> => {
 
   try {
     await refreshCache();
-    console.log(`[goistats] recorded leaderboard snapshot (${lastWeekKey})`);
+    console.log(`[goistats] recorded leaderboard snapshot (${lastDayKey})`);
   } catch (err) {
     console.error("[goistats] background refresh failed:", err);
   }

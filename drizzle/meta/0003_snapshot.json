@@ -1,0 +1,302 @@
+{
+  "id": "d615d95e-9d0d-458f-adaa-0a977c76e75f",
+  "prevId": "e0419ab1-9425-4f7f-a89a-022526b04277",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.lb_changes": {
+      "name": "lb_changes",
+      "schema": "",
+      "columns": {
+        "day_key": {
+          "name": "day_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "reviewer": {
+          "name": "reviewer",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "rank": {
+          "name": "rank",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "devlogs_last_three_days": {
+          "name": "devlogs_last_three_days",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "locked_in_status": {
+          "name": "locked_in_status",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "locked_in_so_far_this_week": {
+          "name": "locked_in_so_far_this_week",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "projects_reviewed_today": {
+          "name": "projects_reviewed_today",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "projects_reviewed_last_three_days": {
+          "name": "projects_reviewed_last_three_days",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "stardust_earnt": {
+          "name": "stardust_earnt",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "changed_keys": {
+          "name": "changed_keys",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'"
+        },
+        "captured_at": {
+          "name": "captured_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "lb_changes_lookup_idx": {
+          "name": "lb_changes_lookup_idx",
+          "columns": [
+            {
+              "expression": "day_key",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "reviewer",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "captured_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "lb_changes_week_key_lb_weeks_week_key_fk": {
+          "name": "lb_changes_day_key_lb_days_day_key_fk",
+          "tableFrom": "lb_changes",
+          "tableTo": "lb_days",
+          "columnsFrom": [
+            "day_key"
+          ],
+          "columnsTo": [
+            "day_key"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.lb_days": {
+      "name": "lb_days",
+      "schema": "",
+      "columns": {
+        "day_key": {
+          "name": "day_key",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "starts_at": {
+          "name": "starts_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "ends_at": {
+          "name": "ends_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "finalized_at": {
+          "name": "finalized_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.lb_entries": {
+      "name": "lb_entries",
+      "schema": "",
+      "columns": {
+        "day_key": {
+          "name": "day_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "reviewer": {
+          "name": "reviewer",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "rank": {
+          "name": "rank",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "devlogs_last_three_days": {
+          "name": "devlogs_last_three_days",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "locked_in_status": {
+          "name": "locked_in_status",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "locked_in_so_far_this_week": {
+          "name": "locked_in_so_far_this_week",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "projects_reviewed_today": {
+          "name": "projects_reviewed_today",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "projects_reviewed_last_three_days": {
+          "name": "projects_reviewed_last_three_days",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "stardust_earnt": {
+          "name": "stardust_earnt",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "first_seen_at": {
+          "name": "first_seen_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "change_count": {
+          "name": "change_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "lb_entries_week_key_lb_weeks_week_key_fk": {
+          "name": "lb_entries_day_key_lb_days_day_key_fk",
+          "tableFrom": "lb_entries",
+          "tableTo": "lb_days",
+          "columnsFrom": [
+            "day_key"
+          ],
+          "columnsTo": [
+            "day_key"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "lb_entries_pkey": {
+          "name": "lb_entries_pkey",
+          "columns": [
+            "day_key",
+            "reviewer"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {},
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

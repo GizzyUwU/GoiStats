@@ -17,7 +17,7 @@ import type {
   GoiStats,
   Graph,
   LbHistoryResponse,
-  LbHistoryWeek,
+  LbHistoryDay,
   ReviewerEntry,
 } from "./types";
 import "./App.css";
@@ -51,7 +51,6 @@ const isShartHost = (): boolean =>
   typeof window !== "undefined" &&
   window.location.hostname === "shart.gizzy.gay";
 const isDefaultHidden = (type: string): boolean =>
-  // shart keeps hardware only, hiding everything else.
   isShartHost()
     ? !type.toLowerCase().includes("hardware")
     : DEFAULT_HIDDEN.some((p) => type.toLowerCase().includes(p));
@@ -790,13 +789,14 @@ const fetchLbHistory = async (): Promise<LbHistoryResponse> => {
   return (await res.json()) as LbHistoryResponse;
 };
 
-const formatWeekRange = (weekKey: string): string => {
-  const [y, m, d] = weekKey.split("-").map(Number);
-  const start = new Date(y, m - 1, d);
-  const end = new Date(y, m - 1, d + 7);
-  const fmt = (date: Date): string =>
-    date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-  return `${fmt(start)} – ${fmt(end)}`;
+const formatDayKey = (dayKey: string): string => {
+  const [y, m, d] = dayKey.split("-").map(Number);
+  const date = new Date(y, m - 1, d);
+  return date.toLocaleDateString(undefined, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
 };
 
 const formatRounded = (n: number): string => Math.round(n).toString();
@@ -827,13 +827,13 @@ const LeaderboardHistory: Component = () => {
   }));
   const [selected, setSelected] = createSignal<string>("");
 
-  const weeks = (): LbHistoryWeek[] => historyQuery.data?.weeks ?? [];
-  const activeWeek = (): LbHistoryWeek | undefined => {
-    const list = weeks();
-    return list.find((w) => w.weekKey === selected()) ?? list[0];
+  const days = (): LbHistoryDay[] => historyQuery.data?.days ?? [];
+  const activeDay = (): LbHistoryDay | undefined => {
+    const list = days();
+    return list.find((d) => d.dayKey === selected()) ?? list[0];
   };
   const entries = createMemo(() =>
-    [...(activeWeek()?.entries ?? [])].sort(
+    [...(activeDay()?.entries ?? [])].sort(
       (a, b) => b.stardustEarnt - a.stardustEarnt,
     ),
   );
@@ -842,7 +842,7 @@ const LeaderboardHistory: Component = () => {
     <section class="chart-section history-section">
       <h2>
         Past Leaderboards{" "}
-        <span class="lb-subtitle">(saved every Wednesday 4pm ET)</span>
+        <span class="lb-subtitle">(saved daily at 4pm ET)</span>
       </h2>
 
       <Show when={historyQuery.isPending}>
@@ -857,32 +857,32 @@ const LeaderboardHistory: Component = () => {
 
       <Show when={!historyQuery.isPending && !historyQuery.isError}>
         <Show
-          when={weeks().length > 0}
+          when={days().length > 0}
           fallback={
             <div class="history-empty">
-              No past leaderboards recorded yet — history builds up as weeks
+              No past leaderboards recorded yet — history builds up as days
               reset.
             </div>
           }
         >
           <div class="history-controls">
-            <label for="lb-week-select">Week</label>
+            <label for="lb-day-select">Day</label>
             <select
-              id="lb-week-select"
-              value={activeWeek()?.weekKey ?? ""}
+              id="lb-day-select"
+              value={activeDay()?.dayKey ?? ""}
               onChange={(e) => setSelected(e.currentTarget.value)}
             >
-              <For each={weeks()}>
-                {(week) => (
-                  <option value={week.weekKey}>
-                    {formatWeekRange(week.weekKey)}
-                    {week.finalizedAt ? "" : " (current)"}
+              <For each={days()}>
+                {(day) => (
+                  <option value={day.dayKey}>
+                    {formatDayKey(day.dayKey)}
+                    {day.finalizedAt ? "" : " (current)"}
                   </option>
                 )}
               </For>
             </select>
             <span class="history-status">
-              {activeWeek()?.finalizedAt ? "Final" : "In progress"}
+              {activeDay()?.finalizedAt ? "Final" : "In progress"}
             </span>
           </div>
 
@@ -896,10 +896,10 @@ const LeaderboardHistory: Component = () => {
                     Devlogs <span class="th-sub">(3 day)</span>
                   </th>
                   <th>
-                    Projects <span class="th-sub">(3 days)</span>
+                    Projects <span class="th-sub">(day)</span>
                   </th>
                   <th>
-                    Projects <span class="th-sub">(Today)</span>
+                    Projects <span class="th-sub">(3 days)</span>
                   </th>
                   <th>Locked In</th>
                   <th>Stardust</th>
@@ -921,8 +921,8 @@ const LeaderboardHistory: Component = () => {
                         </a>
                       </td>
                       <td>{entry.devlogsLastThreeDays}</td>
-                      <td>{entry.projectsReviewedLastThreeDays}</td>
                       <td>{entry.projectsReviewedToday}</td>
+                      <td>{entry.projectsReviewedLastThreeDays}</td>
                       <td>
                         <span
                           class={`lock-badge ${entry.lockedInStatus ? "locked" : ""}`}
@@ -1124,8 +1124,6 @@ const App = (): JSX.Element => {
     ),
   );
 
-  // Mirrors server.ts buildOgDescription so crawlers (server HTML) and the
-  // live page agree. Reactive: recomputes on every stats refresh.
   const ogDescription = createMemo(() => {
     const projects = displayedPendingReviews();
     const devlogs = displayedPendingDevlogs();
