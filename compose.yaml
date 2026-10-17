@@ -3,13 +3,8 @@ services:
     build:
       context: .
     env_file: .env
-    environment:
-      - DATABASE_URL=postgres://goistats:goistats@postgres:5432/goistats
     extra_hosts:
       - "host.docker.internal:host-gateway"
-    depends_on:
-      postgres:
-        condition: service_healthy
     restart: always
     healthcheck:
       test:
@@ -45,6 +40,3 @@ services:
       timeout: 2s
       retries: 5
       start_period: 4s
-
-volumes:
-  pgdata:
