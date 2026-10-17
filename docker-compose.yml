@@ -1,22 +1,10 @@
 services:
-  postgres:
-    image: postgres:17-alpine
-    environment:
-      POSTGRES_USER: goistats
-      POSTGRES_PASSWORD: goistats
-      POSTGRES_DB: goistats
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-    restart: unless-stopped
-
   goistats:
     build: .
     ports:
       - "3000:3000"
     env_file:
       - .env
-    environment:
-      - DATABASE_URL=postgres://goistats:goistats@postgres:5432/goistats
     depends_on:
       - postgres
     restart: unless-stopped
