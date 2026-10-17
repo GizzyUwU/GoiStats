@@ -1,11 +1,18 @@
 import { Elysia } from "elysia";
+import { eq } from "drizzle-orm";
 import { join } from "node:path";
 import type { GoiStats } from "./src/types.js";
 import { goiStatsSchema } from "./src/schema.js";
+import { db, recordLeaderboard, runMigrations } from "./src/db/index.js";
+import { lbChanges, lbWeeks } from "./src/db/schema.js";
+import { currentWeekWindow } from "./src/db/week.js";
 
 const STARDANCE_COOKIE = process.env.STARDANCE_COOKIE;
 const HCES_BEARER_TOKEN = process.env.HCES_BEARER_TOKEN;
 const HCES_URL = process.env.HCES_URL ?? "https://hces.gizzy.gay";
+
+const CACHE_TTL_MS = Number(process.env.CACHE_TTL_MS ?? 60_000);
+const POLL_INTERVAL_MS = Number(process.env.POLL_INTERVAL_MS ?? 60_000);
 
 if (!STARDANCE_COOKIE || !HCES_BEARER_TOKEN) {
   throw new Error("STARDANCE_COOKIE and HCES_BEARER_TOKEN environment variables are required");
@@ -48,7 +55,10 @@ const refreshCache = async (): Promise<CacheEntry> => {
   inflight = (async () => {
     const data = await fetchGoiStats();
     const now = Date.now();
-    cache = { data, fetchedAt: now, expiresAt: now + 5 * 60 * 1000 };
+    cache = { data, fetchedAt: now, expiresAt: now + CACHE_TTL_MS };
+    recordLeaderboard(data.reviewerLb).catch((err) =>
+      console.error("Failed to record leaderboard snapshot:", err),
+    );
     return cache;
   })().finally(() => {
     inflight = null;
@@ -231,6 +241,60 @@ const app = new Elysia()
       nextRefresh: new Date(cache.expiresAt).toISOString(),
     };
   })
+  .get("/api/lb/history", async ({ set }) => {
+    if (!db) {
+      set.status = 503;
+      return { error: "DATABASE_URL is not configured" };
+    }
+
+    const weeks = await db.query.lbWeeks.findMany({
+      with: { entries: true },
+      orderBy: (w, { desc: d }) => [d(w.startsAt)],
+      limit: 52,
+    });
+
+    return {
+      weeks: weeks.map((w) => ({
+        weekKey: w.weekKey,
+        startsAt: w.startsAt.toISOString(),
+        endsAt: w.endsAt.toISOString(),
+        finalizedAt: w.finalizedAt?.toISOString() ?? null,
+        entries: [...w.entries].sort((a, b) => a.rank - b.rank),
+      })),
+    };
+  })
+  .get("/api/lb/changes", async ({ query, set }) => {
+    if (!db) {
+      set.status = 503;
+      return { error: "DATABASE_URL is not configured" };
+    }
+
+    let weekKey: string | null = query.week ?? null;
+
+    if (weekKey) {
+      const week = await db.query.lbWeeks.findFirst({
+        where: eq(lbWeeks.weekKey, weekKey),
+      });
+      if (!week) {
+        set.status = 404;
+        return { error: `No leaderboard week recorded for ${weekKey}` };
+      }
+    } else {
+      const current = await db.query.lbWeeks.findFirst({
+        orderBy: (w, { desc: d }) => [d(w.startsAt)],
+      });
+      weekKey = current?.weekKey ?? null;
+      if (!weekKey) return { weekKey: null, changes: [] };
+    }
+
+    const changes = await db
+      .select()
+      .from(lbChanges)
+      .where(eq(lbChanges.weekKey, weekKey))
+      .orderBy(lbChanges.capturedAt);
+
+    return { weekKey, changes };
+  })
   .onError(({ code, error, set }) => {
     console.error(`[goistats] ${code}:`, error);
     set.status = 500;
@@ -255,3 +319,43 @@ const app = new Elysia()
   .listen(process.env.PORT ?? 3001);
 
 console.log(`Server running on http://localhost:${app.server?.port}`);
+
+runMigrations()
+  .then(() => {
+    console.log("Database migrations up to date");
+    return poll();
+  })
+  .catch((err) => console.error("Database migration failed:", err));
+
+// Snapshots must not depend on traffic, so poll upstream on a timer. Every tick
+// we also check whether the Wednesday 4pm ET reset has passed; when it has we
+// force a fresh fetch so the new (zeroed) week is captured immediately and the
+// previous week gets finalized.
+let lastWeekKey = currentWeekWindow().weekKey;
+
+const poll = async (): Promise<void> => {
+  const week = currentWeekWindow();
+  if (week.weekKey !== lastWeekKey) {
+    console.log(
+      `[goistats] leaderboard week rolled over: ${lastWeekKey} -> ${week.weekKey}`,
+    );
+    lastWeekKey = week.weekKey;
+    if (cache) cache.expiresAt = 0;
+  }
+
+  if (cache && cache.expiresAt > Date.now()) return;
+
+  try {
+    await refreshCache();
+    console.log(`[goistats] recorded leaderboard snapshot (${lastWeekKey})`);
+  } catch (err) {
+    console.error("[goistats] background refresh failed:", err);
+  }
+};
+
+const pollTimer = setInterval(() => {
+  poll().catch((err) => console.error("[goistats] poll failed:", err));
+}, POLL_INTERVAL_MS);
+pollTimer.unref();
+
+poll().catch((err) => console.error("[goistats] initial poll failed:", err));

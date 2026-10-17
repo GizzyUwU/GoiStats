@@ -1,8 +1,9 @@
 FROM oven/bun:alpine
 WORKDIR /usr/src/app
 RUN apk add --no-cache curl su-exec jq
-COPY --chown=bun:bun package.json bun.lock tsconfig*.json vite.config.ts index.html ./
+COPY --chown=bun:bun package.json bun.lock tsconfig*.json vite.config.ts index.html drizzle.config.ts ./
 COPY --chown=bun:bun src ./src
+COPY --chown=bun:bun drizzle ./drizzle
 COPY --chown=bun:bun public ./public
 COPY --chown=bun:bun server.ts entrypoint.sh ./
 RUN bun install

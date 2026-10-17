@@ -10,21 +10,29 @@
     "server": "bun run server.ts",
     "build:frontend": "vite build",
     "prod:backend": "bun run server",
-    "start": "bun run build && bun run server.ts"
+    "start": "bun run build && bun run server.ts",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:push": "drizzle-kit push",
+    "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
     "@elysiajs/html": "^1.2.0",
     "@solidjs/meta": "^0.29.4",
     "@tanstack/solid-query": "^5.102.8",
     "d3": "^7.9.0",
+    "drizzle-orm": "^0.45.4",
     "elysia": "^1.2.25",
+    "pg": "^8.23.1",
     "solid-js": "^1.9.15",
     "zod": "^4.6.1"
   },
   "devDependencies": {
     "@types/bun": "^1.2.16",
     "@types/d3": "^7.4.3",
+    "@types/pg": "^8.23.1",
     "concurrently": "^9.1.2",
+    "drizzle-kit": "^0.31.11",
     "typescript": "~6.0.2",
     "vite": "^8.2.2",
     "vite-plugin-solid": "^2.11.14"
