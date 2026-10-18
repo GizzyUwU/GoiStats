@@ -68,25 +68,65 @@ const pad = (n: number): string => String(n).padStart(2, "0");
 const dayKeyOf = (year: number, month: number, day: number): string =>
   `${year}-${pad(month)}-${pad(day)}`;
 
-export const currentDayWindow = (now: Date = new Date()): DayWindow => {
+const windowFromStart = (
+  startYear: number,
+  startMonth: number,
+  startDay: number,
+): DayWindow => {
+  const end = new Date(Date.UTC(startYear, startMonth - 1, startDay + 1));
+  return {
+    dayKey: dayKeyOf(startYear, startMonth, startDay),
+    startsAt: wallToInstant(startYear, startMonth, startDay, RESET_HOUR, RESET_MINUTE),
+    endsAt: wallToInstant(
+      end.getUTCFullYear(),
+      end.getUTCMonth() + 1,
+      end.getUTCDate(),
+      RESET_HOUR,
+      RESET_MINUTE,
+    ),
+  };
+};
+
+const naturalDayWindow = (now: Date): DayWindow => {
   const w = wallClock(now);
 
   const minutesIntoDay = w.hour * 60 + w.minute;
   const daysBack = minutesIntoDay < RESET_HOUR * 60 + RESET_MINUTE ? 1 : 0;
 
   const start = new Date(Date.UTC(w.year, w.month - 1, w.day - daysBack));
-  const startYear = start.getUTCFullYear();
-  const startMonth = start.getUTCMonth() + 1;
-  const startDay = start.getUTCDate();
+  return windowFromStart(start.getUTCFullYear(), start.getUTCMonth() + 1, start.getUTCDate());
+};
 
-  const end = new Date(Date.UTC(startYear, startMonth - 1, startDay + 1));
-  const endYear = end.getUTCFullYear();
-  const endMonth = end.getUTCMonth() + 1;
-  const endDay = end.getUTCDate();
+let forcedDayKey: string | null = null;
 
-  return {
-    dayKey: dayKeyOf(startYear, startMonth, startDay),
-    startsAt: wallToInstant(startYear, startMonth, startDay, RESET_HOUR, RESET_MINUTE),
-    endsAt: wallToInstant(endYear, endMonth, endDay, RESET_HOUR, RESET_MINUTE),
-  };
+export const forceNextDay = (now: Date = new Date()): DayWindow => {
+  const base = naturalDayWindow(now);
+  const nextStart = new Date(
+    Date.UTC(
+      base.startsAt.getUTCFullYear(),
+      base.startsAt.getUTCMonth(),
+      base.startsAt.getUTCDate() + 1,
+    ),
+  );
+  const next = windowFromStart(
+    nextStart.getUTCFullYear(),
+    nextStart.getUTCMonth() + 1,
+    nextStart.getUTCDate(),
+  );
+  forcedDayKey = next.dayKey;
+  return next;
+};
+
+export const currentDayWindow = (now: Date = new Date()): DayWindow => {
+  const natural = naturalDayWindow(now);
+  if (!forcedDayKey) return natural;
+
+  // Once the natural window catches up to (or passes) the forced day, drop the override.
+  if (natural.dayKey >= forcedDayKey) {
+    forcedDayKey = null;
+    return natural;
+  }
+
+  const [y, m, d] = forcedDayKey.split("-").map(Number);
+  return windowFromStart(y, m, d);
 };

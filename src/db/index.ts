@@ -4,8 +4,8 @@ import { migrate } from "drizzle-orm/node-postgres/migrator";
 import { Pool } from "pg";
 import type { ReviewerEntry } from "../types.js";
 import * as schema from "./schema.js";
-import { lbChanges, lbEntries, lbDays } from "./schema.js";
-import { currentDayWindow } from "./day.js";
+import { lbChanges, lbEntries, lbDays, type LbEntry } from "./schema.js";
+import { currentDayWindow, forceNextDay } from "./day.js";
 
 const DATABASE_URL = process.env.DATABASE_URL;
 
@@ -66,13 +66,36 @@ const toValues = (entry: ReviewerEntry, rank: number): EntryValues => ({
   stardustEarnt: entry.stardustEarnt,
 });
 
+const looksLikeUpstreamReset = (
+  prior: LbEntry[],
+  leaderboard: ReviewerEntry[],
+): boolean => {
+  if (prior.length === 0 || leaderboard.length === 0) return false;
+  const hadProgress = prior.some((e) => e.projectsReviewedToday > 0);
+  if (!hadProgress) return false;
+  // Every reviewer on the board at exactly 0 "today" while the previous
+  // snapshot had progress means the upstream rolled over its day already.
+  return leaderboard.every((e) => e.projectsReviewedToday === 0);
+};
+
 export const recordLeaderboard = async (
   leaderboard: ReviewerEntry[],
 ): Promise<void> => {
   if (!db) return;
 
   const now = new Date();
-  const day = currentDayWindow(now);
+  let day = currentDayWindow(now);
+
+  const prior = await db
+    .select()
+    .from(lbEntries)
+    .where(eq(lbEntries.dayKey, day.dayKey));
+  if (looksLikeUpstreamReset(prior, leaderboard)) {
+    day = forceNextDay(now);
+    console.log(
+      `[db] upstream daily counters all reset to 0; forcing new day ${day.dayKey}`,
+    );
+  }
 
   await db.transaction(async (tx) => {
     await tx
