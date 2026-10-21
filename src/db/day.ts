@@ -2,6 +2,10 @@ const TIME_ZONE = "America/New_York";
 const RESET_HOUR = 16; // 4pm
 const RESET_MINUTE = 0;
 
+// A leaderboard day is the upstream counter cycle that closes at 4pm ET on the
+// date in the key. The window stored under "2026-10-21" runs from 4pm ET on
+// 2026-10-20 until 4pm ET on 2026-10-21, and is finalized at that moment, so
+// the key always names the date the board was saved on.
 export type DayWindow = {
   dayKey: string;
   startsAt: Date;
@@ -74,17 +78,27 @@ const windowFromStart = (
   startDay: number,
 ): DayWindow => {
   const end = new Date(Date.UTC(startYear, startMonth - 1, startDay + 1));
+  const endYear = end.getUTCFullYear();
+  const endMonth = end.getUTCMonth() + 1;
+  const endDay = end.getUTCDate();
   return {
-    dayKey: dayKeyOf(startYear, startMonth, startDay),
+    dayKey: dayKeyOf(endYear, endMonth, endDay),
     startsAt: wallToInstant(startYear, startMonth, startDay, RESET_HOUR, RESET_MINUTE),
-    endsAt: wallToInstant(
-      end.getUTCFullYear(),
-      end.getUTCMonth() + 1,
-      end.getUTCDate(),
-      RESET_HOUR,
-      RESET_MINUTE,
-    ),
+    endsAt: wallToInstant(endYear, endMonth, endDay, RESET_HOUR, RESET_MINUTE),
   };
+};
+
+const windowEndingOn = (
+  year: number,
+  month: number,
+  day: number,
+): DayWindow => {
+  const start = new Date(Date.UTC(year, month - 1, day - 1));
+  return windowFromStart(
+    start.getUTCFullYear(),
+    start.getUTCMonth() + 1,
+    start.getUTCDate(),
+  );
 };
 
 const naturalDayWindow = (now: Date): DayWindow => {
@@ -99,6 +113,9 @@ const naturalDayWindow = (now: Date): DayWindow => {
 
 let forcedDayKey: string | null = null;
 
+// Moves the recording target to the next window. Used when the upstream
+// counters roll over before the 4pm ET boundary, so the finished cycle keeps
+// its own day and the fresh one starts under the following key.
 export const forceNextDay = (now: Date = new Date()): DayWindow => {
   const base = naturalDayWindow(now);
   const nextStart = new Date(
@@ -128,5 +145,5 @@ export const currentDayWindow = (now: Date = new Date()): DayWindow => {
   }
 
   const [y, m, d] = forcedDayKey.split("-").map(Number);
-  return windowFromStart(y, m, d);
+  return windowEndingOn(y, m, d);
 };

@@ -30,7 +30,7 @@ export const lbEntries = pgTable(
   {
     dayKey: text("day_key")
       .notNull()
-      .references(() => lbDays.dayKey, { onDelete: "cascade" }),
+      .references(() => lbDays.dayKey, { onDelete: "cascade", onUpdate: "cascade" }),
     reviewer: text("reviewer").notNull(),
     rank: integer("rank").notNull(),
     devlogsLastThreeDays: doublePrecision("devlogs_last_three_days").notNull(),
@@ -60,7 +60,7 @@ export const lbChanges = pgTable(
     id: serial("id").primaryKey(),
     dayKey: text("day_key")
       .notNull()
-      .references(() => lbDays.dayKey, { onDelete: "cascade" }),
+      .references(() => lbDays.dayKey, { onDelete: "cascade", onUpdate: "cascade" }),
     reviewer: text("reviewer").notNull(),
     rank: integer("rank").notNull(),
     devlogsLastThreeDays: doublePrecision("devlogs_last_three_days").notNull(),

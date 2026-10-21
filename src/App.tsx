@@ -799,6 +799,16 @@ const formatDayKey = (dayKey: string): string => {
   });
 };
 
+const formatEtTimestamp = (iso: string): string =>
+  new Date(iso).toLocaleString(undefined, {
+    timeZone: "America/New_York",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZoneName: "short",
+  });
+
 const formatRounded = (n: number): string => Math.round(n).toString();
 
 const formatHumanDate = (date: string): string => {
@@ -874,15 +884,14 @@ const LeaderboardHistory: Component = () => {
             >
               <For each={days()}>
                 {(day) => (
-                  <option value={day.dayKey}>
-                    {formatDayKey(day.dayKey)}
-                    {day.finalizedAt ? "" : " (current)"}
-                  </option>
+                  <option value={day.dayKey}>{formatDayKey(day.dayKey)}</option>
                 )}
               </For>
             </select>
             <span class="history-status">
-              {activeDay()?.finalizedAt ? "Final" : "In progress"}
+              {activeDay()?.finalizedAt
+                ? `Saved ${formatEtTimestamp(activeDay()!.finalizedAt!)}`
+                : ""}
             </span>
           </div>
 

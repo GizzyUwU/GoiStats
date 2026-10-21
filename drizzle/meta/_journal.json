@@ -29,6 +29,13 @@
       "when": 1792260000000,
       "tag": "0003_daily_lb",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792570867574,
+      "tag": "0004_relabel_day_keys",
+      "breakpoints": true
     }
   ]
 }

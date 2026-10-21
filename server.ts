@@ -1,5 +1,5 @@
 import { Elysia } from "elysia";
-import { eq } from "drizzle-orm";
+import { eq, isNotNull } from "drizzle-orm";
 import { join } from "node:path";
 import type { GoiStats } from "./src/types.js";
 import { goiStatsSchema } from "./src/schema.js";
@@ -254,6 +254,7 @@ const app = new Elysia()
     }
 
     const days = await db.query.lbDays.findMany({
+      where: isNotNull(lbDays.finalizedAt),
       with: { entries: true },
       orderBy: (d, { desc: desc }) => [desc(d.startsAt)],
       limit: 90,
@@ -286,9 +287,14 @@ const app = new Elysia()
         return { error: `No leaderboard day recorded for ${dayKey}` };
       }
     } else {
-      const current = await db.query.lbDays.findFirst({
-        orderBy: (d, { desc: desc }) => [desc(d.startsAt)],
-      });
+      const current =
+        (await db.query.lbDays.findFirst({
+          where: isNotNull(lbDays.finalizedAt),
+          orderBy: (d, { desc: desc }) => [desc(d.startsAt)],
+        })) ??
+        (await db.query.lbDays.findFirst({
+          orderBy: (d, { desc: desc }) => [desc(d.startsAt)],
+        }));
       dayKey = current?.dayKey ?? null;
       if (!dayKey) return { dayKey: null, changes: [] };
     }

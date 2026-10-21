@@ -78,26 +78,59 @@ const looksLikeUpstreamReset = (
   return leaderboard.every((e) => e.projectsReviewedToday === 0);
 };
 
+// The upstream counters roll over within seconds of 4pm ET, so a rollover
+// seen this close to a window boundary is a boundary race, not a real
+// early/late reset.
+const RESET_GRACE_MS = 30 * 60_000;
+
 export const recordLeaderboard = async (
   leaderboard: ReviewerEntry[],
+  now: Date = new Date(),
 ): Promise<void> => {
   if (!db) return;
 
-  const now = new Date();
   let day = currentDayWindow(now);
 
   const prior = await db
     .select()
     .from(lbEntries)
     .where(eq(lbEntries.dayKey, day.dayKey));
+
+  let closedEarly = false;
+  let closedKey: string | null = null;
+
   if (looksLikeUpstreamReset(prior, leaderboard)) {
-    day = forceNextDay(now);
-    console.log(
-      `[db] upstream daily counters all reset to 0; forcing new day ${day.dayKey}`,
-    );
+    const untilEnd = day.endsAt.getTime() - now.getTime();
+    const sinceStart = now.getTime() - day.startsAt.getTime();
+
+    if (untilEnd > RESET_GRACE_MS && sinceStart <= RESET_GRACE_MS) {
+      // The upstream rolled over right after this window opened, so the values
+      // captured so far still belong to the previous cycle. The regular update
+      // below replaces them with the fresh post-reset ones.
+      console.log(
+        `[db] upstream rolled over at the start of ${day.dayKey}; dropping stale counters`,
+      );
+    } else {
+      // The upstream cycle closed away from the 4pm ET boundary: keep the
+      // finished board under its own key, close the window and carry on in
+      // the next one.
+      closedEarly = true;
+      closedKey = day.dayKey;
+      day = forceNextDay(now);
+      console.log(
+        `[db] upstream rolled over early; closing ${closedKey} and moving to ${day.dayKey}`,
+      );
+    }
   }
 
   await db.transaction(async (tx) => {
+    if (closedEarly && closedKey) {
+      await tx
+        .update(lbDays)
+        .set({ finalizedAt: now })
+        .where(and(eq(lbDays.dayKey, closedKey), isNull(lbDays.finalizedAt)));
+    }
+
     await tx
       .insert(lbDays)
       .values({
