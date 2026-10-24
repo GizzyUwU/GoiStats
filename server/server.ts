@@ -1,6 +1,7 @@
 import { Elysia } from "elysia";
 import { eq, isNotNull } from "drizzle-orm";
-import { join } from "node:path";
+import { join, resolve, sep } from "node:path";
+import { realpath, stat } from "node:fs/promises";
 import type { GoiStats } from "./types.js";
 import { goiStatsSchema } from "./schema.js";
 import { db, recordLeaderboard, runMigrations } from "./db/index.js";
@@ -47,7 +48,7 @@ const fetchGoiStats = async (): Promise<GoiStats> => {
   }
 
   return parsed.data;
-}
+};
 
 const refreshCache = async (): Promise<CacheEntry> => {
   if (inflight) return inflight;
@@ -65,9 +66,11 @@ const refreshCache = async (): Promise<CacheEntry> => {
   });
 
   return inflight;
-}
+};
 
 const DIST = join(import.meta.dir, "../dist");
+// Canonical (symlink-resolved) dist root, used for all containment checks.
+const DIST_REAL = await realpath(DIST).catch(() => resolve(DIST));
 
 const SHART_TITLE = "S.H.A.R.T Stardance Hardware Awesome Review Team";
 const SHART_SHORT = "ShartStats";
@@ -211,6 +214,39 @@ const serveIndexWithMeta = async (host: string | null): Promise<Response> => {
   });
 };
 
+/**
+ * Maps a request path to a real file inside dist/, or null if it is not
+ * safely servable. Rejects: bad encoding, null bytes, backslashes, empty or
+ * dot-prefixed segments (covers `..`, dotfiles, `.env`), anything resolving
+ * outside dist (lexically or via symlink), non-regular files, and index.html
+ * (served separately with meta injection).
+ */
+const resolveDistFile = async (urlPath: string): Promise<string | null> => {
+  let decoded: string;
+  try {
+    decoded = decodeURIComponent(urlPath);
+  } catch {
+    return null;
+  }
+  if (decoded.includes("\0") || decoded.includes("\\")) return null;
+
+  const rel = decoded.replace(/^\/+/, "");
+  if (rel === "" || rel === "index.html") return null;
+  if (rel.split("/").some((seg) => seg === "" || seg.startsWith("."))) return null;
+
+  const candidate = resolve(DIST_REAL, rel);
+  if (!candidate.startsWith(DIST_REAL + sep)) return null;
+
+  try {
+    const real = await realpath(candidate); // follows symlinks
+    if (!real.startsWith(DIST_REAL + sep)) return null;
+    if (!(await stat(real)).isFile()) return null;
+    return real;
+  } catch {
+    return null;
+  }
+};
+
 try {
   await runMigrations();
   console.log("Database migrations up to date");
@@ -231,7 +267,7 @@ const app = new Elysia()
         console.error("Failed to refresh goiStats:", err);
         if (!cache) {
           set.status = 500;
-          return { error: "Failed to fetch stats from upstream", details: err instanceof Error ? err.message : String(err) };
+          return { error: "Failed to fetch stats from upstream" };
         }
       }
     }
@@ -310,30 +346,20 @@ const app = new Elysia()
   .onError(({ code, error, set }) => {
     console.error(`[goistats] ${code}:`, error);
     set.status = 500;
-    return { error: "Internal server error", details: error instanceof Error ? error.message : String(error) };
+    return { error: "Internal server error" };
   })
   .get("*", async ({ path, request }) => {
-    const filePath = join(DIST, path === "/" ? "index.html" : path);
-    const hasExtension = /\.[a-zA-Z0-9]+$/.test(path);
-    if (hasExtension) {
-      const file = Bun.file(filePath);
-      if (await file.exists()) {
-        if (path.startsWith("/assets/")) {
-          return new Response(file, {
-            headers: { "Cache-Control": "public, max-age=31536000, immutable" },
-          });
-        }
-        return file;
-      }
-    } else if (path !== "/") {
-      const file = Bun.file(filePath);
-      if (await file.exists()) {
-        const text = await file.text();
-        if (!text.trimStart().startsWith("<")) return file;
-      }
-    }
+    const host = request.headers.get("host");
+    const filePath = await resolveDistFile(path);
+    if (!filePath) return serveIndexWithMeta(host);
 
-    return serveIndexWithMeta(request.headers.get("host"));
+    const file = Bun.file(filePath);
+    if (filePath.startsWith(join(DIST_REAL, "assets") + sep)) {
+      return new Response(file, {
+        headers: { "Cache-Control": "public, max-age=31536000, immutable" },
+      });
+    }
+    return file;
   })
   .listen(process.env.PORT ?? 3001);
 
