@@ -317,7 +317,14 @@ const app = new Elysia()
     const hasExtension = /\.[a-zA-Z0-9]+$/.test(path);
     if (hasExtension) {
       const file = Bun.file(filePath);
-      if (await file.exists()) return file;
+      if (await file.exists()) {
+        if (path.startsWith("/assets/")) {
+          return new Response(file, {
+            headers: { "Cache-Control": "public, max-age=31536000, immutable" },
+          });
+        }
+        return file;
+      }
     } else if (path !== "/") {
       const file = Bun.file(filePath);
       if (await file.exists()) {
