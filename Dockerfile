@@ -6,7 +6,8 @@ RUN bun install
 
 COPY --chown=bun:bun tsconfig*.json vite.config.ts index.html drizzle.config.ts ./
 COPY --chown=bun:bun drizzle ./drizzle
-COPY --chown=bun:bun server.ts entrypoint.sh ./
+COPY --chown=bun:bun server ./server
+COPY --chown=bun:bun entrypoint.sh ./
 RUN chmod +x /usr/src/app/entrypoint.sh
 EXPOSE 8000/tcp
 ENTRYPOINT ["/usr/src/app/entrypoint.sh"]

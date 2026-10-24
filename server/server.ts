@@ -1,11 +1,11 @@
 import { Elysia } from "elysia";
 import { eq, isNotNull } from "drizzle-orm";
 import { join } from "node:path";
-import type { GoiStats } from "./src/types.js";
-import { goiStatsSchema } from "./src/schema.js";
-import { db, recordLeaderboard, runMigrations } from "./src/db/index.js";
-import { lbChanges, lbDays } from "./src/db/schema.js";
-import { currentDayWindow } from "./src/db/day.js";
+import type { GoiStats } from "./types.js";
+import { goiStatsSchema } from "./schema.js";
+import { db, recordLeaderboard, runMigrations } from "./db/index.js";
+import { lbChanges, lbDays } from "./db/schema.js";
+import { currentDayWindow } from "./db/day.js";
 
 const STARDANCE_COOKIE = process.env.STARDANCE_COOKIE;
 const HCES_BEARER_TOKEN = process.env.HCES_BEARER_TOKEN;
@@ -67,7 +67,7 @@ const refreshCache = async (): Promise<CacheEntry> => {
   return inflight;
 }
 
-const DIST = join(import.meta.dir, "dist");
+const DIST = join(import.meta.dir, "../dist");
 
 const SHART_TITLE = "S.H.A.R.T Stardance Hardware Awesome Review Team";
 const SHART_SHORT = "ShartStats";
