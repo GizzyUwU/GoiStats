@@ -1,6 +1,9 @@
-FROM oven/bun:debian AS builder
+FROM oven/bun:alpine AS builder
 WORKDIR /usr/src/app
-COPY . .
+COPY --chown=bun:bun tsconfig*.json vite.config.ts index.html drizzle.config.ts ./
+COPY --chown=bun:bun src ./src
+COPY --chown=bun:bun public ./public
+
 RUN bun install
 RUN bun run build:frontend
 
