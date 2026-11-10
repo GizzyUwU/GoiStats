@@ -6,9 +6,14 @@ import { App } from './App'
 import { MetaProvider } from '@solidjs/meta'
 
 const root = document.getElementById('root')
-const queryClient = new QueryClient()
+// Server injects a plain-HTML #server-notice into the shell when stats are
+// unavailable (e.g. expired Stardance cookie) so the state shows on the page
+// without JS. Once the client hydrates it renders its own banners, so drop
+// the server one to avoid showing it twice.
+document.getElementById('server-notice')?.remove()
 
 if (root) {
+const queryClient = new QueryClient()
   render(
     () => (
       <QueryClientProvider client={queryClient}>

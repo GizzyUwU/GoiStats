@@ -64,23 +64,17 @@ const fetchGoiStats = async (): Promise<GoiStats> => {
     // HCES returns 401 { err: { status: 401, msg: "stardance_cookie_expired" } }
     // when the session cookie is expired/invalid, or "stardance_cookie_required".
     // Read the body once so a non-JSON 401 doesn't consume the stream twice.
+    // Match robustly: any status, any shape — the codes are distinctive.
     const rawBody = await res.text().catch(() => "");
-    if (res.status === 401) {
-      try {
-        const data = JSON.parse(rawBody) as {
-          err?: { msg?: unknown };
-        };
-        const msg = data?.err?.msg;
-        if (
-          msg === "stardance_cookie_expired" ||
-          msg === "stardance_cookie_required"
-        ) {
-          throw new StardanceCookieError(msg);
-        }
-      } catch (err) {
-        if (err instanceof StardanceCookieError) throw err;
-        // Non-JSON 401 — fall through to generic handling below.
-      }
+    const cookieCode = (
+      rawBody.includes("stardance_cookie_expired")
+        ? "stardance_cookie_expired"
+        : rawBody.includes("stardance_cookie_required")
+          ? "stardance_cookie_required"
+          : null
+    );
+    if (cookieCode) {
+      throw new StardanceCookieError(cookieCode);
     }
     throw new Error(
       `HCES API error ${res.status}: ${sanitizeUpstreamBody(rawBody)}`,
@@ -141,6 +135,29 @@ const escapeHtmlAttr = (s: string): string =>
     .replace(/"/g, "&quot;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;");
+
+const SERVER_NOTICE_STYLE =
+  "max-width:900px;margin:1rem auto;padding:0.65rem 0.9rem;border-radius:10px;" +
+  "font-family:system-ui,sans-serif;font-size:0.85rem;font-weight:600;text-align:center;";
+
+// Plain-HTML notice inside #root so the state is visible on the page itself,
+// not just via the JS-fetched API. The client removes it once it hydrates
+// (see src/index.tsx) to avoid showing it twice.
+const injectServerNotice = (
+  html: string,
+  text: string,
+  kind: "expired" | "unavailable",
+): string => {
+  const style =
+    kind === "expired"
+      ? `${SERVER_NOTICE_STYLE}background:rgba(249,226,175,0.12);color:#f9e2af;border:1px solid rgba(249,226,175,0.35);`
+      : `${SERVER_NOTICE_STYLE}background:rgba(243,139,168,0.1);color:#f38ba8;border:1px solid rgba(243,139,168,0.2);`;
+  const banner =
+    `<div id="server-notice" role="alert" style="${style}">${escapeHtmlAttr(text)}</div>`;
+  const pattern = /<div\s+id="root"[^>]*>\s*<\/div>/;
+  if (pattern.test(html)) return html.replace(pattern, `<div id="root">${banner}</div>`);
+  return html.replace("</body>", `  ${banner}\n  </body>`);
+};
 
 const getStatsForMeta = async (): Promise<GoiStats | null> => {
   const now = Date.now();
@@ -263,6 +280,22 @@ const serveIndexWithMeta = async (host: string | null): Promise<Response> => {
       /<meta\s+name="twitter:image"\s+content="[^"]*"\s*\/?>/,
       `<meta name="twitter:image" content="${imageUrl}" />`,
     );
+
+  // Surface outage state in the HTML shell itself (visible without JS),
+  // instead of only as JSON on /api/goistats for the client to render.
+  if (stardanceCookieExpired) {
+    html = injectServerNotice(
+      html,
+      "Stardance session expired — waiting for it to be fixed.",
+      "expired",
+    );
+  } else if (!stats) {
+    html = injectServerNotice(
+      html,
+      "Stats are temporarily unavailable — failed to fetch from upstream. Please try again shortly.",
+      "unavailable",
+    );
+  }
 
   return new Response(html, {
     headers: {

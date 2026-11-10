@@ -838,7 +838,9 @@ const fetchGoiStats = async (): Promise<GoiStatsResponse> => {
   if (!res.ok) {
     // Never surface the raw upstream body (it may echo auth material) —
     // surface a generic message, except for the known expired-cookie case.
-    let code: string | null = null;
+    // Our own API's `message`/`error` strings are safe to show on the page.
+    let expired = false;
+    let serverMessage: string | null = null;
     try {
       const body = (await res.clone().json()) as {
         error?: unknown;
@@ -851,17 +853,35 @@ const fetchGoiStats = async (): Promise<GoiStatsResponse> => {
         body?.code === STARDANCE_COOKIE_EXPIRED_CODE ||
         body?.cookieExpired === true
       ) {
-        code = STARDANCE_COOKIE_EXPIRED_CODE;
+        expired = true;
+      }
+      for (const value of [body?.error, body?.code, body?.message]) {
+        if (
+          typeof value === "string" &&
+          (value.includes(STARDANCE_COOKIE_EXPIRED_CODE) ||
+            value.includes("stardance_cookie_required"))
+        ) {
+          expired = true;
+        }
+      }
+      if (typeof body?.message === "string" && body.message.length > 0) {
+        serverMessage = body.message;
+      } else if (
+        typeof body?.error === "string" &&
+        body.error !== STARDANCE_COOKIE_EXPIRED_CODE &&
+        body.error.length > 0
+      ) {
+        serverMessage = body.error;
       }
     } catch {
       // Non-JSON error body — treat as generic failure.
     }
-    if (code === STARDANCE_COOKIE_EXPIRED_CODE) {
+    if (expired) {
       throw new Error(
         `${STARDANCE_COOKIE_EXPIRED_CODE}: Stardance session expired — waiting for it to be fixed.`,
       );
     }
-    throw new Error(`HTTP ${res.status}`);
+    throw new Error(serverMessage ?? `HTTP ${res.status}`);
   }
   return (await res.json()) as GoiStatsResponse;
 };
