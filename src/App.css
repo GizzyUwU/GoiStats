@@ -103,6 +103,18 @@ header h1 {
   border: 1px solid rgba(243, 139, 168, 0.2);
 }
 
+.cookie-banner {
+  background: rgba(249, 226, 175, 0.12);
+  color: var(--yellow);
+  border: 1px solid rgba(249, 226, 175, 0.35);
+  border-radius: 10px;
+  padding: 0.65rem 0.9rem;
+  margin-bottom: 1rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-align: center;
+}
+
 .leaderboard {
   margin-bottom: 2rem;
 }
@@ -843,6 +855,133 @@ tr.locked-row td:first-child {
   }
 }
 
+@media (max-width: 599px) {
+  .lb-sort-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    margin-bottom: 0.6rem;
+    flex-wrap: wrap;
+  }
+
+  .lb-sort-label {
+    font-size: 0.6rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-weight: 600;
+    margin-right: 0.15rem;
+  }
+
+  .lb-sort-btn {
+    background: var(--surface);
+    color: var(--text-dim);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.2rem 0.45rem;
+    font-size: 0.6rem;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+  }
+
+  .lb-sort-btn.active {
+    background: var(--accent);
+    color: var(--bg);
+    border-color: var(--accent);
+    font-weight: 600;
+  }
+
+  .lb-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+
+  .lb-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.55rem 0.65rem;
+  }
+
+  .lb-card-locked {
+    background: rgba(249, 226, 175, 0.08);
+    border-color: rgba(249, 226, 175, 0.25);
+    border-left: 3px solid var(--yellow);
+  }
+
+  .lb-card-head {
+    display: flex;
+    align-items: baseline;
+    gap: 0.4rem;
+    margin-bottom: 0.4rem;
+  }
+
+  .lb-card-rank {
+    font-size: 0.65rem;
+    font-weight: 700;
+    color: var(--text-dim);
+    min-width: 1.2em;
+  }
+
+  .lb-card-name {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text);
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .lb-card-stardust {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--accent);
+    white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+  }
+
+  .lb-card-dust {
+    width: 14px;
+    height: 14px;
+    object-fit: contain;
+  }
+
+  .lb-card-stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.3rem;
+  }
+
+  .lb-card-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 0.05rem;
+  }
+
+  .lb-card-stat-label {
+    font-size: 0.48rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--text-dim);
+  }
+
+  .lb-card-stat-val {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .lb-card-stat-val.locked {
+    color: var(--yellow);
+  }
+  }
+
 @media (max-width: 480px) {
   .app {
     padding: 0.75rem 0.5rem;
@@ -970,128 +1109,4 @@ tr.locked-row td:first-child {
     height: 260px;
   }
 
-  .lb-sort-bar {
-    display: flex;
-    align-items: center;
-    gap: 0.35rem;
-    margin-bottom: 0.6rem;
-    flex-wrap: wrap;
-  }
-
-  .lb-sort-label {
-    font-size: 0.6rem;
-    color: var(--text-dim);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    font-weight: 600;
-    margin-right: 0.15rem;
-  }
-
-  .lb-sort-btn {
-    background: var(--surface);
-    color: var(--text-dim);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    padding: 0.2rem 0.45rem;
-    font-size: 0.6rem;
-    cursor: pointer;
-    transition: background 0.15s, color 0.15s;
-  }
-
-  .lb-sort-btn.active {
-    background: var(--accent);
-    color: var(--bg);
-    border-color: var(--accent);
-    font-weight: 600;
-  }
-
-  .lb-cards {
-    display: flex;
-    flex-direction: column;
-    gap: 0.4rem;
-  }
-
-  .lb-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 0.55rem 0.65rem;
-  }
-
-  .lb-card-locked {
-    background: rgba(249, 226, 175, 0.08);
-    border-color: rgba(249, 226, 175, 0.25);
-    border-left: 3px solid var(--yellow);
-  }
-
-  .lb-card-head {
-    display: flex;
-    align-items: baseline;
-    gap: 0.4rem;
-    margin-bottom: 0.4rem;
-  }
-
-  .lb-card-rank {
-    font-size: 0.65rem;
-    font-weight: 700;
-    color: var(--text-dim);
-    min-width: 1.2em;
-  }
-
-  .lb-card-name {
-    font-size: 0.85rem;
-    font-weight: 600;
-    color: var(--text);
-    flex: 1;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .lb-card-stardust {
-    font-size: 0.75rem;
-    font-weight: 700;
-    color: var(--accent);
-    white-space: nowrap;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.2rem;
-  }
-
-  .lb-card-dust {
-    width: 14px;
-    height: 14px;
-    object-fit: contain;
-  }
-
-  .lb-card-stats {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 0.3rem;
-  }
-
-  .lb-card-stat {
-    display: flex;
-    flex-direction: column;
-    gap: 0.05rem;
-  }
-
-  .lb-card-stat-label {
-    font-size: 0.48rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
-    color: var(--text-dim);
-  }
-
-  .lb-card-stat-val {
-    font-size: 0.8rem;
-    font-weight: 600;
-    color: var(--text);
-  }
-
-  .lb-card-stat-val.locked {
-    color: var(--yellow);
-  }
 }

@@ -47,6 +47,7 @@ const PALETTE = [
 ] as const;
 
 const DEFAULT_HIDDEN = ["hardware"];
+const [isMobile, setIsMobile] = createSignal(false);
 const isShartHost = (): boolean =>
   typeof window !== "undefined" &&
   window.location.hostname === "shart.gizzy.gay";
@@ -762,6 +763,16 @@ const ReviewsByDateChart: Component<{ graph: Graph }> = (props) => {
   );
 };
 
+type LbRow = {
+  reviewer: string;
+  devlogsLastThreeDays: number;
+  lockedInStatus: boolean;
+  lockedInSoFarThisWeek: number;
+  projectsReviewedToday: number;
+  projectsReviewedLastThreeDays: number;
+  stardustEarnt: number;
+};
+
 type SortKey =
   | "devlogsLastThreeDays"
   | "projectsReviewedLastThreeDays"
@@ -771,15 +782,87 @@ type SortKey =
 
 type SortDirection = "asc" | "desc";
 
+const useLbSorting = (
+  initialKey: SortKey = "stardustEarnt",
+): {
+  sortKey: () => SortKey;
+  toggleSort: (key: SortKey) => void;
+  sortIndicator: (key: SortKey) => string;
+  sortRows: <T extends LbRow>(rows: T[]) => T[];
+} => {
+  const [sortKey, setSortKey] = createSignal<SortKey>(initialKey);
+  const [sortDir, setSortDir] = createSignal<SortDirection>("desc");
+
+  const toggleSort = (key: SortKey): void => {
+    if (sortKey() === key) {
+      setSortDir((d) => (d === "desc" ? "asc" : "desc"));
+    } else {
+      setSortKey(key);
+      setSortDir("desc");
+    }
+  };
+
+  const sortIndicator = (key: SortKey): string => {
+    if (sortKey() !== key) return "";
+    return sortDir() === "desc" ? " \u25BC" : " \u25B2";
+  };
+
+  const sortRows = <T extends LbRow>(rows: T[]): T[] =>
+    [...rows].sort((a, b) => {
+      const dir = sortDir() === "desc" ? -1 : 1;
+      return (a[sortKey()] - b[sortKey()]) * dir;
+    });
+
+  return { sortKey, toggleSort, sortIndicator, sortRows };
+};
+
 type GoiStatsResponse = {
   data: GoiStats;
   fetchedAt: string;
   nextRefresh: string;
+  stale?: boolean;
+  cookieExpired?: boolean;
 };
+
+const STARDANCE_COOKIE_EXPIRED_CODE = "stardance_cookie_expired";
+const STARDANCE_COOKIE_EXPIRED_MESSAGE =
+  "Stardance session expired — showing last known data, waiting for it to be fixed.";
+
+const isCookieExpiredError = (err: unknown): boolean =>
+  err instanceof Error &&
+  (err.message.includes(STARDANCE_COOKIE_EXPIRED_CODE) ||
+    err.message.includes("Stardance session expired"));
 
 const fetchGoiStats = async (): Promise<GoiStatsResponse> => {
   const res = await fetch("/api/goistats");
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  if (!res.ok) {
+    // Never surface the raw upstream body (it may echo auth material) —
+    // surface a generic message, except for the known expired-cookie case.
+    let code: string | null = null;
+    try {
+      const body = (await res.clone().json()) as {
+        error?: unknown;
+        code?: unknown;
+        cookieExpired?: unknown;
+        message?: unknown;
+      };
+      if (
+        body?.error === STARDANCE_COOKIE_EXPIRED_CODE ||
+        body?.code === STARDANCE_COOKIE_EXPIRED_CODE ||
+        body?.cookieExpired === true
+      ) {
+        code = STARDANCE_COOKIE_EXPIRED_CODE;
+      }
+    } catch {
+      // Non-JSON error body — treat as generic failure.
+    }
+    if (code === STARDANCE_COOKIE_EXPIRED_CODE) {
+      throw new Error(
+        `${STARDANCE_COOKIE_EXPIRED_CODE}: Stardance session expired — waiting for it to be fixed.`,
+      );
+    }
+    throw new Error(`HTTP ${res.status}`);
+  }
   return (await res.json()) as GoiStatsResponse;
 };
 
@@ -829,6 +912,174 @@ const daysSince = (date: string): number => {
   );
 };
 
+const LeaderboardTable: Component<{
+  rows: LbRow[];
+  onSort: (key: SortKey) => void;
+  indicator: (key: SortKey) => string;
+}> = (props) => (
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Reviewer</th>
+          <th
+            class="sortable"
+            onClick={() => props.onSort("devlogsLastThreeDays")}
+            title="Devlogs reviewed in the last 3 days — reviewers with nothing in that window aren't ranked"
+          >
+            Devlogs <span class="th-sub">(3 day)</span>
+            {props.indicator("devlogsLastThreeDays")}
+          </th>
+          <th
+            class="sortable"
+            onClick={() => props.onSort("projectsReviewedLastThreeDays")}
+            title="Projects completed in the last 3 days — one per ship review, however many devlogs it covered"
+          >
+            Projects <span class="th-sub">(3 days)</span>
+            {props.indicator("projectsReviewedLastThreeDays")}
+          </th>
+          <th
+            class="sortable"
+            onClick={() => props.onSort("projectsReviewedToday")}
+            title="Projects completed since 4pm ET today (goal: 20/day)"
+          >
+            Projects <span class="th-sub">(Today)</span>
+            {props.indicator("projectsReviewedToday")}
+          </th>
+          <th
+            class="sortable"
+            onClick={() => props.onSort("lockedInSoFarThisWeek")}
+            title="Devlogs reviewed per day so far this review week (goal: 30/day)"
+          >
+            Locked In{props.indicator("lockedInSoFarThisWeek")}
+          </th>
+          <th
+            class="sortable"
+            onClick={() => props.onSort("stardustEarnt")}
+            title="Projected payout across all devlogs reviewed, all time"
+          >
+            Stardust{props.indicator("stardustEarnt")}
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        <For each={props.rows}>
+          {(entry, i) => (
+            <tr class={entry.lockedInStatus ? "locked-row" : ""}>
+              <td>{i() + 1}</td>
+              <td class="reviewer-name">
+                <a
+                  class="a-tag"
+                  href={"https://stardance.hackclub.com/@" + entry.reviewer}
+                >
+                  {entry.reviewer}
+                </a>
+              </td>
+              <td>{entry.devlogsLastThreeDays}</td>
+              <td>{entry.projectsReviewedLastThreeDays}</td>
+              <td>{entry.projectsReviewedToday}</td>
+              <td>
+                <span
+                  class={`lock-badge ${entry.lockedInStatus ? "locked" : ""}`}
+                >
+                  {entry.lockedInSoFarThisWeek}
+                </span>
+              </td>
+              <td>{entry.stardustEarnt.toLocaleString()}</td>
+            </tr>
+          )}
+        </For>
+      </tbody>
+    </table>
+  </div>
+);
+
+const LeaderboardCards: Component<{ rows: LbRow[] }> = (props) => (
+  <div class="lb-cards">
+    <For each={props.rows}>
+      {(entry, i) => (
+        <div class={`lb-card ${entry.lockedInStatus ? "lb-card-locked" : ""}`}>
+          <div class="lb-card-head">
+            <span class="lb-card-rank">{i() + 1}</span>
+            <a
+              class="lb-card-name a-tag"
+              href={"https://stardance.hackclub.com/@" + entry.reviewer}
+            >
+              {entry.reviewer}
+            </a>
+            <span class="lb-card-stardust">
+              {entry.stardustEarnt.toLocaleString()}
+              <img class="lb-card-dust" src="/stardust-18e809ef.avif" alt="" />
+            </span>
+          </div>
+          <div class="lb-card-stats">
+            <div class="lb-card-stat">
+              <span class="lb-card-stat-label">Devlogs</span>
+              <span class="lb-card-stat-val">
+                {entry.devlogsLastThreeDays}
+              </span>
+            </div>
+            <div class="lb-card-stat">
+              <span class="lb-card-stat-label">Reviews (3d)</span>
+              <span class="lb-card-stat-val">
+                {entry.projectsReviewedLastThreeDays}
+              </span>
+            </div>
+            <div class="lb-card-stat">
+              <span class="lb-card-stat-label">Today</span>
+              <span class="lb-card-stat-val">
+                {entry.projectsReviewedToday}
+              </span>
+            </div>
+            <div class="lb-card-stat">
+              <span class="lb-card-stat-label">Locked In</span>
+              <span
+                class={`lb-card-stat-val ${entry.lockedInStatus ? "locked" : ""}`}
+              >
+                {entry.lockedInSoFarThisWeek}
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+    </For>
+  </div>
+);
+
+const LeaderboardSortBar: Component<{
+  sortKey: () => SortKey;
+  onSort: (key: SortKey) => void;
+}> = (props) => (
+  <div class="lb-sort-bar">
+    <span class="lb-sort-label">Sort by</span>
+    <button
+      class={`lb-sort-btn ${props.sortKey() === "stardustEarnt" ? "active" : ""}`}
+      onClick={() => props.onSort("stardustEarnt")}
+    >
+      Stardust
+    </button>
+    <button
+      class={`lb-sort-btn ${props.sortKey() === "devlogsLastThreeDays" ? "active" : ""}`}
+      onClick={() => props.onSort("devlogsLastThreeDays")}
+    >
+      Devlogs
+    </button>
+    <button
+      class={`lb-sort-btn ${props.sortKey() === "projectsReviewedLastThreeDays" ? "active" : ""}`}
+      onClick={() => props.onSort("projectsReviewedLastThreeDays")}
+    >
+      Reviews
+    </button>
+    <button
+      class={`lb-sort-btn ${props.sortKey() === "lockedInSoFarThisWeek" ? "active" : ""}`}
+      onClick={() => props.onSort("lockedInSoFarThisWeek")}
+    >
+      Locked In
+    </button>
+  </div>
+);
+
 const LeaderboardHistory: Component = () => {
   const historyQuery = createQuery(() => ({
     queryKey: ["lb-history"],
@@ -836,17 +1087,14 @@ const LeaderboardHistory: Component = () => {
     refetchInterval: 60 * 1000,
   }));
   const [selected, setSelected] = createSignal<string>("");
+  const { sortKey, toggleSort, sortIndicator, sortRows } = useLbSorting();
 
   const days = (): LbHistoryDay[] => historyQuery.data?.days ?? [];
   const activeDay = (): LbHistoryDay | undefined => {
     const list = days();
     return list.find((d) => d.dayKey === selected()) ?? list[0];
   };
-  const entries = createMemo(() =>
-    [...(activeDay()?.entries ?? [])].sort(
-      (a, b) => b.stardustEarnt - a.stardustEarnt,
-    ),
-  );
+  const entries = createMemo(() => sortRows(activeDay()?.entries ?? []));
 
   return (
     <section class="chart-section history-section">
@@ -895,57 +1143,18 @@ const LeaderboardHistory: Component = () => {
             </span>
           </div>
 
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>#</th>
-                  <th>Reviewer</th>
-                  <th>
-                    Devlogs <span class="th-sub">(3 day)</span>
-                  </th>
-                  <th>
-                    Projects <span class="th-sub">(day)</span>
-                  </th>
-                  <th>
-                    Projects <span class="th-sub">(3 days)</span>
-                  </th>
-                  <th>Locked In</th>
-                  <th>Stardust</th>
-                </tr>
-              </thead>
-              <tbody>
-                <For each={entries()}>
-                  {(entry, i) => (
-                    <tr class={entry.lockedInStatus ? "locked-row" : ""}>
-                      <td>{i() + 1}</td>
-                      <td class="reviewer-name">
-                        <a
-                          class="a-tag"
-                          href={
-                            "https://stardance.hackclub.com/@" + entry.reviewer
-                          }
-                        >
-                          {entry.reviewer}
-                        </a>
-                      </td>
-                      <td>{entry.devlogsLastThreeDays}</td>
-                      <td>{entry.projectsReviewedToday}</td>
-                      <td>{entry.projectsReviewedLastThreeDays}</td>
-                      <td>
-                        <span
-                          class={`lock-badge ${entry.lockedInStatus ? "locked" : ""}`}
-                        >
-                          {entry.lockedInSoFarThisWeek}
-                        </span>
-                      </td>
-                      <td>{entry.stardustEarnt.toLocaleString()}</td>
-                    </tr>
-                  )}
-                </For>
-              </tbody>
-            </table>
-          </div>
+          <Show when={!isMobile()}>
+            <LeaderboardTable
+              rows={entries()}
+              onSort={toggleSort}
+              indicator={sortIndicator}
+            />
+          </Show>
+
+          <Show when={isMobile()}>
+            <LeaderboardSortBar sortKey={sortKey} onSort={toggleSort} />
+            <LeaderboardCards rows={entries()} />
+          </Show>
         </Show>
       </Show>
     </section>
@@ -953,10 +1162,8 @@ const LeaderboardHistory: Component = () => {
 };
 
 const App = (): JSX.Element => {
-  const [sortKey, setSortKey] = createSignal<SortKey>("stardustEarnt");
-  const [sortDir, setSortDir] = createSignal<SortDirection>("desc");
+  const { sortKey, toggleSort, sortIndicator, sortRows } = useLbSorting();
   const [now, setNow] = createSignal(Date.now());
-  const [isMobile, setIsMobile] = createSignal(false);
   const [isStinky] = createSignal(Math.random() < 0.1);
   const isGotg = (): boolean => window.location.hostname === "gotg.gizzy.gay";
   const isShart = (): boolean =>
@@ -977,10 +1184,15 @@ const App = (): JSX.Element => {
     queryKey: ["goistats"],
     queryFn: fetchGoiStats,
     refetchInterval: (query) => {
+      // When the server Stardance cookie is expired, keep waiting for a fix
+      // instead of stopping refreshes entirely.
+      if (isCookieExpiredError(query.state.error)) return 5 * 60_000;
       const nextRefresh = query.state.data?.nextRefresh;
       if (!nextRefresh) return false;
       return Math.max(1000, new Date(nextRefresh).getTime() - Date.now());
     },
+    retry: (failureCount, error) =>
+      isCookieExpiredError(error) ? true : failureCount < 3,
   }));
 
   const [hiddenCats, setHiddenCats] = createSignal<Set<string>>(new Set());
@@ -1175,6 +1387,10 @@ const App = (): JSX.Element => {
     return Math.max(0, new Date(nextRefresh).getTime() - now());
   };
 
+  const cookieExpired = (): boolean =>
+    statsQuery.data?.cookieExpired === true ||
+    isCookieExpiredError(statsQuery.error);
+
   const formatDuration = (ms: number): string => {
     const totalSeconds = Math.ceil(ms / 1000);
     const minutes = Math.floor(totalSeconds / 60);
@@ -1187,26 +1403,7 @@ const App = (): JSX.Element => {
   const reviewerLb = (): ReviewerEntry[] =>
     statsQuery.data?.data.reviewerLb ?? [];
 
-  const sorted = (): ReviewerEntry[] => {
-    return [...reviewerLb()].sort((a, b) => {
-      const dir = sortDir() === "desc" ? -1 : 1;
-      return (a[sortKey()] - b[sortKey()]) * dir;
-    });
-  };
-
-  const toggleSort = (key: SortKey): void => {
-    if (sortKey() === key) {
-      setSortDir((d) => (d === "desc" ? "asc" : "desc"));
-    } else {
-      setSortKey(key);
-      setSortDir("desc");
-    }
-  };
-
-  const sortIndicator = (key: SortKey): string => {
-    if (sortKey() !== key) return "";
-    return sortDir() === "desc" ? " \u25BC" : " \u25B2";
-  };
+  const sorted = createMemo<ReviewerEntry[]>(() => sortRows(reviewerLb()));
 
   const oldestSubtext = (): string => {
     const oldest = displayedOldestInQueue();
@@ -1308,6 +1505,19 @@ const App = (): JSX.Element => {
           )}
         </Show>
       </header>
+
+      <Show when={cookieExpired()}>
+        <div class="cookie-banner" role="alert">
+          <Show
+            when={statsQuery.data}
+            fallback={
+              <>Stardance session expired — waiting for it to be fixed.</>
+            }
+          >
+            {STARDANCE_COOKIE_EXPIRED_MESSAGE}
+          </Show>
+        </div>
+      </Show>
 
       <Show when={statsQuery.data}>
         {(resp) => (
@@ -1461,7 +1671,14 @@ const App = (): JSX.Element => {
 
       <Show when={!statsQuery.isPending && statsQuery.isError}>
         <div class="error">
-          Error: {statsQuery.error?.message ?? "Failed to load stats"}
+          <Show
+            when={isCookieExpiredError(statsQuery.error)}
+            fallback={
+              <>Error: {statsQuery.error?.message ?? "Failed to load stats"}</>
+            }
+          >
+            Stardance session expired — waiting for it to be fixed.
+          </Show>
         </div>
       </Show>
 
@@ -1475,175 +1692,16 @@ const App = (): JSX.Element => {
               </h2>
 
               <Show when={!isMobile()}>
-                <div class="table-wrap">
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>#</th>
-                        <th>Reviewer</th>
-                        <th
-                          class="sortable"
-                          onClick={() => toggleSort("devlogsLastThreeDays")}
-                          title="Devlogs reviewed in the last 3 days — reviewers with nothing in that window aren't ranked"
-                        >
-                          Devlogs <span class="th-sub">(3 day)</span>
-                          {sortIndicator("devlogsLastThreeDays")}
-                        </th>
-                        <th
-                          class="sortable"
-                          onClick={() =>
-                            toggleSort("projectsReviewedLastThreeDays")
-                          }
-                          title="Projects completed in the last 3 days — one per ship review, however many devlogs it covered"
-                        >
-                          Projects <span class="th-sub">(3 days)</span>
-                          {sortIndicator("projectsReviewedLastThreeDays")}
-                        </th>
-                        <th
-                          class="sortable"
-                          onClick={() => toggleSort("projectsReviewedToday")}
-                          title="Projects completed since 4pm ET today (goal: 20/day)"
-                        >
-                          Prrojects <span class="th-sub">(Today)</span>
-                          {sortIndicator("projectsReviewedToday")}
-                        </th>
-                        <th
-                          class="sortable"
-                          onClick={() => toggleSort("lockedInSoFarThisWeek")}
-                          title="Devlogs reviewed per day so far this review week (goal: 30/day)"
-                        >
-                          Locked In{sortIndicator("lockedInSoFarThisWeek")}
-                        </th>
-                        <th
-                          class="sortable"
-                          onClick={() => toggleSort("stardustEarnt")}
-                          title="Projected payout across all devlogs reviewed, all time"
-                        >
-                          Stardust{sortIndicator("stardustEarnt")}
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <For each={sorted()}>
-                        {(entry, i) => (
-                          <tr class={entry.lockedInStatus ? "locked-row" : ""}>
-                            <td>{i() + 1}</td>
-                            <td class="reviewer-name">
-                              <a
-                                class="a-tag"
-                                href={
-                                  "https://stardance.hackclub.com/@" +
-                                  entry.reviewer
-                                }
-                              >
-                                {entry.reviewer}
-                              </a>
-                            </td>
-                            <td>{entry.devlogsLastThreeDays}</td>
-                            <td>{entry.projectsReviewedLastThreeDays}</td>
-                            <td>{entry.projectsReviewedToday}</td>
-                            <td>
-                              <span
-                                class={`lock-badge ${entry.lockedInStatus ? "locked" : ""}`}
-                              >
-                                {entry.lockedInSoFarThisWeek}
-                              </span>
-                            </td>
-                            <td>{entry.stardustEarnt.toLocaleString()}</td>
-                          </tr>
-                        )}
-                      </For>
-                    </tbody>
-                  </table>
-                </div>
+                <LeaderboardTable
+                  rows={sorted()}
+                  onSort={toggleSort}
+                  indicator={sortIndicator}
+                />
               </Show>
 
               <Show when={isMobile()}>
-                <div class="lb-sort-bar">
-                  <span class="lb-sort-label">Sort by</span>
-                  <button
-                    class={`lb-sort-btn ${sortKey() === "stardustEarnt" ? "active" : ""}`}
-                    onClick={() => toggleSort("stardustEarnt")}
-                  >
-                    Stardust
-                  </button>
-                  <button
-                    class={`lb-sort-btn ${sortKey() === "devlogsLastThreeDays" ? "active" : ""}`}
-                    onClick={() => toggleSort("devlogsLastThreeDays")}
-                  >
-                    Devlogs
-                  </button>
-                  <button
-                    class={`lb-sort-btn ${sortKey() === "projectsReviewedLastThreeDays" ? "active" : ""}`}
-                    onClick={() => toggleSort("projectsReviewedLastThreeDays")}
-                  >
-                    Reviews
-                  </button>
-                  <button
-                    class={`lb-sort-btn ${sortKey() === "lockedInSoFarThisWeek" ? "active" : ""}`}
-                    onClick={() => toggleSort("lockedInSoFarThisWeek")}
-                  >
-                    Locked In
-                  </button>
-                </div>
-                <div class="lb-cards">
-                  <For each={sorted()}>
-                    {(entry, i) => (
-                      <div
-                        class={`lb-card ${entry.lockedInStatus ? "lb-card-locked" : ""}`}
-                      >
-                        <div class="lb-card-head">
-                          <span class="lb-card-rank">{i() + 1}</span>
-                          <a
-                            class="lb-card-name a-tag"
-                            href={
-                              "https://stardance.hackclub.com/@" +
-                              entry.reviewer
-                            }
-                          >
-                            {entry.reviewer}
-                          </a>
-                          <span class="lb-card-stardust">
-                            {entry.stardustEarnt.toLocaleString()}
-                            <img
-                              class="lb-card-dust"
-                              src="/stardust-18e809ef.avif"
-                              alt=""
-                            />
-                          </span>
-                        </div>
-                        <div class="lb-card-stats">
-                          <div class="lb-card-stat">
-                            <span class="lb-card-stat-label">Devlogs</span>
-                            <span class="lb-card-stat-val">
-                              {entry.devlogsLastThreeDays}
-                            </span>
-                          </div>
-                          <div class="lb-card-stat">
-                            <span class="lb-card-stat-label">Reviews (3d)</span>
-                            <span class="lb-card-stat-val">
-                              {entry.projectsReviewedLastThreeDays}
-                            </span>
-                          </div>
-                          <div class="lb-card-stat">
-                            <span class="lb-card-stat-label">Today</span>
-                            <span class="lb-card-stat-val">
-                              {entry.projectsReviewedToday}
-                            </span>
-                          </div>
-                          <div class="lb-card-stat">
-                            <span class="lb-card-stat-label">Locked In</span>
-                            <span
-                              class={`lb-card-stat-val ${entry.lockedInStatus ? "locked" : ""}`}
-                            >
-                              {entry.lockedInSoFarThisWeek}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </For>
-                </div>
+                <LeaderboardSortBar sortKey={sortKey} onSort={toggleSort} />
+                <LeaderboardCards rows={sorted()} />
               </Show>
             </section>
 

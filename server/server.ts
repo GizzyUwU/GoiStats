@@ -28,6 +28,29 @@ type CacheEntry = {
 let cache: CacheEntry | null = null;
 let inflight: Promise<CacheEntry> | null = null;
 
+class StardanceCookieError extends Error {
+  readonly code: "stardance_cookie_expired" | "stardance_cookie_required";
+  constructor(code: StardanceCookieError["code"]) {
+    super(code);
+    this.name = "StardanceCookieError";
+    this.code = code;
+  }
+}
+
+const sanitizeUpstreamBody = (body: string): string => {
+  // Never leak the session cookie value into logs or API responses.
+  const redacted =
+    STARDANCE_COOKIE.length > 0
+      ? body.split(STARDANCE_COOKIE).join("[REDACTED]")
+      : body;
+  return redacted.length > 200 ? `${redacted.slice(0, 200)}…` : redacted;
+};
+
+let stardanceCookieExpired = false;
+let stardanceCookieExpiredAt: number | null = null;
+let lastCookieFailureAt = 0;
+const COOKIE_RETRY_MS = Number(process.env.COOKIE_RETRY_MS ?? 5 * 60_000);
+
 const fetchGoiStats = async (): Promise<GoiStats> => {
   const res = await fetch(`${HCES_URL}/api/v1/stardance/goiStats`, {
     headers: {
@@ -38,8 +61,30 @@ const fetchGoiStats = async (): Promise<GoiStats> => {
   });
 
   if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`HCES API error ${res.status}: ${body}`);
+    // HCES returns 401 { err: { status: 401, msg: "stardance_cookie_expired" } }
+    // when the session cookie is expired/invalid, or "stardance_cookie_required".
+    // Read the body once so a non-JSON 401 doesn't consume the stream twice.
+    const rawBody = await res.text().catch(() => "");
+    if (res.status === 401) {
+      try {
+        const data = JSON.parse(rawBody) as {
+          err?: { msg?: unknown };
+        };
+        const msg = data?.err?.msg;
+        if (
+          msg === "stardance_cookie_expired" ||
+          msg === "stardance_cookie_required"
+        ) {
+          throw new StardanceCookieError(msg);
+        }
+      } catch (err) {
+        if (err instanceof StardanceCookieError) throw err;
+        // Non-JSON 401 — fall through to generic handling below.
+      }
+    }
+    throw new Error(
+      `HCES API error ${res.status}: ${sanitizeUpstreamBody(rawBody)}`,
+    );
   }
 
   const parsed = goiStatsSchema.safeParse(await res.json());
@@ -54,9 +99,22 @@ const refreshCache = async (): Promise<CacheEntry> => {
   if (inflight) return inflight;
 
   inflight = (async () => {
-    const data = await fetchGoiStats();
+    let data: GoiStats;
+    try {
+      data = await fetchGoiStats();
+    } catch (err) {
+      if (err instanceof StardanceCookieError) {
+        stardanceCookieExpired = true;
+        stardanceCookieExpiredAt ??= Date.now();
+        lastCookieFailureAt = Date.now();
+        throw err;
+      }
+      throw err;
+    }
     const now = Date.now();
     cache = { data, fetchedAt: now, expiresAt: now + CACHE_TTL_MS };
+    stardanceCookieExpired = false;
+    stardanceCookieExpiredAt = null;
     recordLeaderboard(data.reviewerLb).catch((err) =>
       console.error("Failed to record leaderboard snapshot:", err),
     );
@@ -264,10 +322,26 @@ const app = new Elysia()
       try {
         await refreshCache();
       } catch (err) {
-        console.error("Failed to refresh goiStats:", err);
-        if (!cache) {
-          set.status = 500;
-          return { error: "Failed to fetch stats from upstream" };
+        if (err instanceof StardanceCookieError) {
+          console.error(
+            `[goistats] stardance cookie expired (${err.code}), waiting for fix`,
+          );
+          if (!cache) {
+            set.status = 503;
+            return {
+              error: "stardance_cookie_expired",
+              cookieExpired: true,
+              message:
+                "Stardance session expired — waiting for it to be fixed.",
+            };
+          }
+          // Fall through to stale-cache response below.
+        } else {
+          console.error("Failed to refresh goiStats:", err);
+          if (!cache) {
+            set.status = 500;
+            return { error: "Failed to fetch stats from upstream" };
+          }
         }
       }
     }
@@ -275,6 +349,18 @@ const app = new Elysia()
     if (!cache) {
       set.status = 500;
       return { error: "No cached stats available" };
+    }
+
+    if (stardanceCookieExpired) {
+      return {
+        data: cache.data,
+        fetchedAt: new Date(cache.fetchedAt).toISOString(),
+        nextRefresh: new Date(
+          Math.max(Date.now() + COOKIE_RETRY_MS, lastCookieFailureAt + COOKIE_RETRY_MS),
+        ).toISOString(),
+        stale: true,
+        cookieExpired: true,
+      };
     }
 
     return {
@@ -379,10 +465,25 @@ const poll = async (): Promise<void> => {
 
   if (cache && cache.expiresAt > Date.now()) return;
 
+  // When the Stardance cookie is expired, wait for it to be fixed instead of
+  // hammering upstream on every poll tick.
+  if (
+    stardanceCookieExpired &&
+    Date.now() - lastCookieFailureAt < COOKIE_RETRY_MS
+  ) {
+    return;
+  }
+
   try {
     await refreshCache();
     console.log(`[goistats] recorded leaderboard snapshot (${lastDayKey})`);
   } catch (err) {
+    if (err instanceof StardanceCookieError) {
+      console.error(
+        `[goistats] background refresh paused: stardance cookie expired (${err.code}), waiting for fix`,
+      );
+      return;
+    }
     console.error("[goistats] background refresh failed:", err);
   }
 };
